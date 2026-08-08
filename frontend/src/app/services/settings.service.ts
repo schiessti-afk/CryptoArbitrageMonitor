@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
   disabledSymbols: [],
   minNetSpreadPercent: 0,
   hideBelowThreshold: false,
-  theme: 'system',
+  theme: 'dark',
   density: 'comfortable',
   freshnessWindowMsOverride: null,
   defaultNotionalOverride: null,

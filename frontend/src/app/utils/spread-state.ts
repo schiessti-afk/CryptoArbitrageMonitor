@@ -42,52 +42,34 @@ export function getIndicatorEmoji(state: SpreadState): string {
 }
 
 export function getStateClasses(state: SpreadState): Record<string, boolean> {
-  const baseClasses = {
-    'p-4': true,
-    'rounded-lg': true,
-    'border': true,
-  };
-
   switch (state) {
     case 'POTENTIAL':
-      return {
-        ...baseClasses,
-        'bg-green-50': true,
-        'border-green-200': true,
-      };
+      return { 'row-positive': true, 'data-row': true };
     case 'NO_OPPORTUNITY':
-      return {
-        ...baseClasses,
-        'bg-red-50': true,
-        'border-red-200': true,
-      };
+      return { 'row-negative': true, 'data-row': true };
     case 'NEUTRAL':
-      return {
-        ...baseClasses,
-        'bg-gray-50': true,
-        'border-gray-200': true,
-      };
+      return { 'row-neutral': true, 'data-row': true };
   }
 }
 
 export function getStateBackgroundClass(state: SpreadState): string {
   switch (state) {
     case 'POTENTIAL':
-      return 'bg-green-50 dark:bg-green-950';
+      return 'row-positive';
     case 'NO_OPPORTUNITY':
-      return 'bg-red-50 dark:bg-red-950';
+      return 'row-negative';
     case 'NEUTRAL':
-      return 'bg-gray-50 dark:bg-gray-900';
+      return 'row-neutral';
   }
 }
 
 export function getStateTextClass(state: SpreadState): string {
   switch (state) {
     case 'POTENTIAL':
-      return 'text-green-700 dark:text-green-300';
+      return 'text-positive';
     case 'NO_OPPORTUNITY':
-      return 'text-red-700 dark:text-red-300';
+      return 'text-negative';
     case 'NEUTRAL':
-      return 'text-gray-700 dark:text-gray-300';
+      return 'text-muted';
   }
 }

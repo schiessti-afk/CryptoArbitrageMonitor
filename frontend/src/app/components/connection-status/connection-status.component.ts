@@ -107,14 +107,4 @@ export class ConnectionStatusComponent implements OnInit, OnDestroy {
     }
   }
 
-  getBadgeEmoji(): string {
-    switch (this.badge()) {
-      case 'LIVE':
-        return '🟢';
-      case 'DEGRADED':
-        return '🟡';
-      case 'STALE':
-        return '🔴';
-    }
-  }
 }

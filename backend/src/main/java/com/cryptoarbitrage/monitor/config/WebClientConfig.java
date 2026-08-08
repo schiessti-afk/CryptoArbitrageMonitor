@@ -19,6 +19,9 @@ import java.time.Duration;
 @Configuration
 public class WebClientConfig {
 
+    /** KuCoin/Bitget all-ticker payloads exceed WebClient's default 256KB codec buffer. */
+    private static final int MAX_IN_MEMORY_SIZE = 16 * 1024 * 1024;
+
     @Bean
     public WebClient binanceWebClient(ExchangeProperties props) {
         return createWebClient(props.getAdapters().get("binance"));
@@ -56,6 +59,7 @@ public class WebClientConfig {
         return WebClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_SIZE))
                 .build();
     }
 }

@@ -1,7 +1,7 @@
 @if (loading()) {
   <div class="space-y-2" aria-busy="true">
     @for (i of [1,2,3,4]; track i) {
-      <div class="skeleton h-12 rounded"></div>
+      <div class="skeleton h-12"></div>
     }
   </div>
 } @else if (filteredEmpty()) {
@@ -14,22 +14,22 @@
     <p>No spread data yet for {{ quoteAsset() }} markets.</p>
   </div>
 } @else {
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto rounded-lg border border-theme">
     <table class="w-full text-sm border-collapse">
       <thead>
-        <tr class="bg-muted-row text-left">
-          <th class="p-2 border border-theme">Symbol</th>
-          <th class="p-2 border border-theme">Route</th>
-          <th class="p-2 border border-theme text-right">Net %</th>
-          <th class="p-2 border border-theme text-right">Est. profit</th>
-          <th class="p-2 border border-theme text-right">Age</th>
+        <tr class="bg-muted-row text-left text-muted text-xs uppercase tracking-wider">
+          <th class="p-2 border-b border-theme font-semibold">Symbol</th>
+          <th class="p-2 border-b border-theme font-semibold">Route</th>
+          <th class="p-2 border-b border-theme text-right font-semibold">Net %</th>
+          <th class="p-2 border-b border-theme text-right font-semibold">Est. profit</th>
+          <th class="p-2 border-b border-theme text-right font-semibold">Age</th>
         </tr>
       </thead>
       <tbody>
         @for (opp of opportunities(); track opp.symbol + opp.buyExchange + opp.sellExchange) {
-          <tr [ngClass]="getClasses(opp.netSpreadPercent)" class="border border-theme">
-            <td class="p-2 font-semibold tabular-nums">{{ opp.symbol }}</td>
-            <td class="p-2">
+          <tr [ngClass]="getClasses(opp.netSpreadPercent)" class="border-b border-theme last:border-b-0">
+            <td class="font-semibold tabular-nums" [ngClass]="rowPadding()">{{ opp.symbol }}</td>
+            <td [ngClass]="rowPadding()">
               <span class="font-medium">{{ opp.buyExchange }}</span>
               <span class="text-muted mx-1">→</span>
               <span class="font-medium">{{ opp.sellExchange }}</span>
@@ -37,14 +37,14 @@
                 {{ opp.buyPrice | number:priceFormat(opp.buyPrice) }} → {{ opp.sellPrice | number:priceFormat(opp.sellPrice) }}
               </div>
             </td>
-            <td class="p-2 text-right font-bold tabular-nums" [ngClass]="getTextClass(opp.netSpreadPercent)">
+            <td class="text-right font-bold tabular-nums" [ngClass]="[rowPadding(), getTextClass(opp.netSpreadPercent)]">
               {{ formatPercent(opp.netSpreadPercent) }}
             </td>
-            <td class="p-2 text-right tabular-nums"
+            <td class="text-right tabular-nums" [ngClass]="rowPadding()"
                 [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees and fill depth.'">
               {{ formatProfitValue(opp) }}
             </td>
-            <td class="p-2 text-right text-muted text-xs tabular-nums">
+            <td class="text-right text-muted text-xs tabular-nums" [ngClass]="rowPadding()">
               @if (opp.calculatedAt) {
                 live
               } @else {
@@ -54,7 +54,8 @@
           </tr>
           @if (coverageMessage(opp.symbol); as msg) {
             <tr>
-              <td colspan="5" class="p-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-200 border border-theme">
+              <td colspan="5" class="p-2 text-xs border-b border-theme"
+                  style="background: var(--warning-bg); color: var(--warning)">
                 {{ msg }}
               </td>
             </tr>

@@ -8,21 +8,31 @@ import {
 import { SpreadOpportunity, ExchangeStatus } from '../models/spread.model';
 
 describe('mergeSettings', () => {
+  it('defaults to dark theme', () => {
+    expect(DEFAULT_SETTINGS.theme).toBe('dark');
+  });
+
   it('returns defaults for corrupt JSON path', () => {
     expect(mergeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(mergeSettings({ version: 2 })).toEqual(DEFAULT_SETTINGS);
   });
 
   it('drops unknown keys', () => {
-    const merged = mergeSettings({ version: 1, theme: 'dark', unknown: true });
-    expect(merged.theme).toBe('dark');
+    const merged = mergeSettings({ version: 1, theme: 'light', unknown: true });
+    expect(merged.theme).toBe('light');
     expect((merged as any).unknown).toBeUndefined();
   });
 
   it('fills missing keys from defaults', () => {
-    const merged = mergeSettings({ version: 1, theme: 'dark' });
+    const merged = mergeSettings({ version: 1, theme: 'light' });
+    expect(merged.theme).toBe('light');
     expect(merged.disabledExchanges).toEqual([]);
     expect(merged.minNetSpreadPercent).toBe(0);
+  });
+
+  it('uses dark when theme omitted from stored object', () => {
+    const merged = mergeSettings({ version: 1 });
+    expect(merged.theme).toBe('dark');
   });
 });
 

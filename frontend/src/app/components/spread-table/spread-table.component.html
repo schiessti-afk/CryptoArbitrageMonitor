@@ -1,7 +1,7 @@
 @if (loading()) {
   <div class="space-y-3" aria-busy="true">
     @for (i of [1,2,3]; track i) {
-      <div class="skeleton h-24 rounded"></div>
+      <div class="skeleton h-24"></div>
     }
   </div>
 } @else if (filteredEmpty()) {
@@ -14,39 +14,46 @@
     <p>No matrix data yet for {{ quoteAsset() }} markets.</p>
   </div>
 } @else {
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto space-y-6">
     @for (group of groupedMatrix(); track group.symbol) {
-      <div class="mb-6">
-        <h3 class="font-semibold mb-2">{{ group.symbol }}</h3>
+      <div>
+        <h3 class="font-semibold mb-2 tracking-tight">{{ group.symbol }}</h3>
         @if (coverageMessage(group.symbol); as msg) {
-          <p class="text-xs text-amber-700 dark:text-amber-300 mb-2">{{ msg }}</p>
+          <p class="text-xs mb-2" style="color: var(--warning)">{{ msg }}</p>
         }
-        <table class="w-full border-collapse min-w-[640px]">
-          <thead>
-            <tr class="bg-muted-row">
-              <th class="border border-theme text-left sticky left-0 bg-muted-row z-10" [class]="cellPadding()">Buy</th>
-              <th class="border border-theme text-left" [class]="cellPadding()">Sell</th>
-              <th class="border border-theme text-right" [class]="cellPadding()">Buy {{ quoteAsset() }}</th>
-              <th class="border border-theme text-right" [class]="cellPadding()">Sell {{ quoteAsset() }}</th>
-              <th class="border border-theme text-right" [class]="cellPadding()">Raw %</th>
-              <th class="border border-theme text-right" [class]="cellPadding()">Fees %</th>
-              <th class="border border-theme text-right" [class]="cellPadding()">Net %</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
-              <tr [class]="getRowClass(row.netSpreadPercent)">
-                <td class="border border-theme sticky left-0 bg-inherit z-10" [class]="cellPadding()">{{ row.buyExchange }}</td>
-                <td class="border border-theme" [class]="cellPadding()">{{ row.sellExchange }}</td>
-                <td class="border border-theme text-right font-mono tabular-nums" [class]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
-                <td class="border border-theme text-right font-mono tabular-nums" [class]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
-                <td class="border border-theme text-right tabular-nums" [class]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
-                <td class="border border-theme text-right text-muted tabular-nums" [class]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
-                <td class="border border-theme text-right font-bold tabular-nums" [class]="cellPadding()">{{ formatNet(row.netSpreadPercent) }}</td>
+        <div class="rounded-lg border border-theme overflow-hidden">
+          <table class="w-full border-collapse min-w-[640px]">
+            <thead>
+              <tr class="bg-muted-row text-muted text-xs uppercase tracking-wider">
+                <th class="border-b border-theme text-left sticky left-0 bg-muted-row z-10 font-semibold" [ngClass]="cellPadding()">Buy</th>
+                <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Sell</th>
+                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Buy {{ quoteAsset() }}</th>
+                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Sell {{ quoteAsset() }}</th>
+                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Raw %</th>
+                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Fees %</th>
+                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Net %</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
+                <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme'">
+                  <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
+                  <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
+                  <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
+                  <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
+                  <td class="text-right tabular-nums" [ngClass]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
+                  <td class="text-right text-muted tabular-nums" [ngClass]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
+                  <td class="text-right font-bold tabular-nums"
+                      [ngClass]="cellPadding()"
+                      [class.text-positive]="row.netSpreadPercent > 0.001"
+                      [class.text-negative]="row.netSpreadPercent < -0.001">
+                    {{ formatNet(row.netSpreadPercent) }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     }
   </div>

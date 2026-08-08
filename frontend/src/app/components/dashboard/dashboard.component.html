@@ -1,23 +1,34 @@
 <div class="min-h-screen bg-page">
   <!-- Sticky header -->
-  <header class="sticky top-0 z-30 bg-page/95 backdrop-blur border-b border-theme">
+  <header class="sticky top-0 z-30 bg-header backdrop-blur-md border-b border-theme">
     <div class="max-w-7xl mx-auto px-4 py-3">
       <div class="flex items-center justify-between flex-wrap gap-3">
-        <div class="flex items-center gap-4 flex-wrap">
-          <h1 class="text-2xl font-bold">Crypto Arbitrage Monitor</h1>
+        <div class="flex items-center gap-4 flex-wrap min-w-0">
+          <div class="brand-lockup">
+            <img src="favicon-192.png"
+                 srcset="favicon-192.png 1x, favicon-512.png 2x"
+                 width="36"
+                 height="36"
+                 alt=""
+                 class="brand-mark" />
+            <div class="min-w-0">
+              <h1 class="brand-title">Crypto Arbitrage Monitor</h1>
+              <p class="brand-subtitle">Indicative cross-venue spreads</p>
+            </div>
+          </div>
           <app-connection-status
             [freshnessWindowMs]="freshnessWindowMs()"
             [nowMs]="now()" />
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <div class="inline-flex rounded-lg border border-theme panel p-1">
+          <div class="inline-flex rounded-lg border border-theme panel-elevated p-1">
             @for (asset of config().quoteAssets; track asset) {
               <button type="button"
                       (click)="selectQuoteAsset(asset)"
                       [class.btn-primary]="quoteAsset.selected() === asset"
                       [class.btn-ghost]="quoteAsset.selected() !== asset"
-                      class="px-3 py-1 rounded-md text-sm font-semibold">
+                      class="px-3 py-1.5 rounded-md text-sm font-semibold">
                 {{ asset }}
               </button>
             }
@@ -39,7 +50,12 @@
                   (click)="openSettings(gearBtn)"
                   aria-label="Open settings"
                   aria-haspopup="dialog">
-            ⚙
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+                 class="h-5 w-5" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9c.36.5.95.84 1.55.91H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.09Z"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -72,7 +88,9 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="kpi-tile">
         <p class="kpi-label">Best net spread</p>
-        <p class="kpi-value tabular-nums">
+        <p class="kpi-value tabular-nums"
+           [class.text-positive]="kpiBestSpread() !== null && kpiBestSpread()! > 0"
+           [class.text-negative]="kpiBestSpread() !== null && kpiBestSpread()! < 0">
           @if (kpiBestSpread() !== null) {
             {{ kpiBestSpread()! >= 0 ? '+' : '' }}{{ kpiBestSpread() | number:'1.2-4' }}%
           } @else {
@@ -95,9 +113,9 @@
     </div>
 
     <!-- Opportunities panel -->
-    <section class="panel rounded-lg shadow-sm p-4">
+    <section class="panel rounded-xl shadow-sm p-4">
       <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h2 class="text-lg font-bold">Top Opportunities</h2>
+        <h2 class="text-lg font-bold tracking-tight">Top Opportunities</h2>
         <div class="flex gap-2 flex-wrap">
           @for (chip of [
             { id: 'all', label: 'All' },
@@ -126,7 +144,7 @@
     </section>
 
     <!-- Matrix -->
-    <section class="panel rounded-lg shadow-sm p-4">
+    <section class="panel rounded-xl shadow-sm p-4">
       @if (hasActiveFilters()) {
         <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
           <div class="flex gap-2 flex-wrap">
@@ -142,8 +160,8 @@
       }
 
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h2 class="text-lg font-bold">Full Matrix</h2>
-        <label class="flex items-center gap-2 text-sm">
+        <h2 class="text-lg font-bold tracking-tight">Full Matrix</h2>
+        <label class="flex items-center gap-2 text-sm text-muted">
           <input type="checkbox"
                  [checked]="showBothDirections()"
                  (change)="showBothDirections.set($any($event.target).checked)" />
@@ -164,8 +182,8 @@
     </section>
 
     <!-- Fees panel -->
-    <details class="panel rounded-lg shadow-sm p-4">
-      <summary class="cursor-pointer text-lg font-bold">Fees &amp; Spread Math</summary>
+    <details class="panel rounded-xl shadow-sm p-4">
+      <summary class="cursor-pointer text-lg font-bold tracking-tight">Fees &amp; Spread Math</summary>
       <div class="mt-4 text-sm">
         @if (config().fees.length > 0) {
           <table class="w-full mb-4 border-collapse text-sm">
@@ -177,7 +195,7 @@
             </thead>
             <tbody>
               @for (fee of config().fees; track fee.exchange) {
-                <tr>
+                <tr class="data-row">
                   <td class="border border-theme p-2">{{ fee.exchange }}</td>
                   <td class="border border-theme p-2 text-right font-mono tabular-nums">{{ (fee.takerFee * 100) | number:'1.3-3' }}%</td>
                 </tr>
@@ -185,15 +203,16 @@
             </tbody>
           </table>
         }
-        <div class="bg-muted-row p-3 rounded font-mono text-xs mb-4 overflow-x-auto">
+        <div class="bg-muted-row p-3 rounded-md font-mono text-xs mb-4 overflow-x-auto border border-theme">
           net% = ((sell × (1 − sell_fee)) / (buy × (1 + buy_fee)) − 1) × 100
         </div>
       </div>
     </details>
 
-    <footer class="text-xs text-muted border-t border-theme pt-4 pb-8">
+    <footer class="text-xs text-muted border-t border-theme pt-4 pb-8 flex items-start gap-3">
+      <img src="favicon-32x32.png" width="20" height="20" alt="" class="rounded mt-0.5 shrink-0 opacity-80" />
       <p>
-        <strong>Indicative comparison only.</strong> Figures exclude withdrawal and network fees,
+        <strong class="text-[var(--text)]">Indicative comparison only.</strong> Figures exclude withdrawal and network fees,
         transfer time, latency, and order-book depth beyond top-of-book. Estimated profit uses
         <code class="text-xs">notional × net% ÷ 100</code>, assuming the full notional fills at the
         quoted best bid/ask on both legs — not achievable size at that price.

@@ -1,19 +1,23 @@
 <div class="flex items-center gap-3 flex-wrap text-sm">
   <div class="flex items-center gap-2" aria-live="polite">
-    <span class="text-xl">{{ getBadgeEmoji() }}</span>
-    <span class="font-bold"
-          [class.text-green-600]="badge() === 'LIVE'"
-          [class.text-yellow-600]="badge() === 'DEGRADED'"
-          [class.text-red-600]="badge() === 'STALE'">
+    <span class="status-badge"
+          [class.status-badge-live]="badge() === 'LIVE'"
+          [class.status-badge-degraded]="badge() === 'DEGRADED'"
+          [class.status-badge-stale]="badge() === 'STALE'">
+      <span class="status-dot"
+            [class.status-dot-live]="badge() === 'LIVE'"
+            [class.status-dot-degraded]="badge() === 'DEGRADED'"
+            [class.status-dot-stale]="badge() === 'STALE'"
+            aria-hidden="true"></span>
       {{ badge() }}
     </span>
-    <span class="text-muted">{{ lastMessageAge() }}</span>
+    <span class="text-muted text-xs sm:text-sm">{{ lastMessageAge() }}</span>
   </div>
 
-  <div class="flex gap-2 flex-wrap">
+  <div class="flex gap-1.5 flex-wrap">
     @for (ex of visibleExchanges(); track ex.exchange) {
       @if (!settings.settings().disabledExchanges.includes(ex.exchange)) {
-        <span [ngClass]="getExchangeClass(ex.freshness)">{{ ex.exchange }}: {{ ex.freshness }}</span>
+        <span [ngClass]="getExchangeClass(ex.freshness)">{{ ex.exchange }}</span>
       }
     }
     @for (ex of hiddenExchanges(); track ex.exchange) {

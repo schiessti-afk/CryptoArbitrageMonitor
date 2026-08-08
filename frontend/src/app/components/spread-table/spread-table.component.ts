@@ -26,7 +26,7 @@ export class SpreadTableComponent {
     disabledSymbols: [],
     minNetSpreadPercent: 0,
     hideBelowThreshold: false,
-    theme: 'system',
+    theme: 'dark',
     density: 'comfortable',
     freshnessWindowMsOverride: null,
     defaultNotionalOverride: null,
@@ -68,7 +68,7 @@ export class SpreadTableComponent {
     const dim =
       !this.settings().hideBelowThreshold &&
       isBelowThreshold({ netSpreadPercent: netPercent } as SpreadOpportunity, this.settings());
-    return `${getStateBackgroundClass(state)}${dim ? ' opacity-50' : ''}`;
+    return `data-row ${getStateBackgroundClass(state)}${dim ? ' opacity-50' : ''}`;
   }
 
   calculateFeeImpact(opp: SpreadOpportunity): number {

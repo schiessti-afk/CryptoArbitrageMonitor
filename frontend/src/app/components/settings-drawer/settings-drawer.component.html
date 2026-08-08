@@ -1,49 +1,54 @@
 @if (open()) {
   <div class="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true" aria-label="Dashboard settings">
-    <button type="button" class="absolute inset-0 bg-black/40" (click)="close()" aria-label="Close settings"></button>
+    <button type="button" class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="close()" aria-label="Close settings"></button>
 
-    <aside class="relative z-50 w-full max-w-md h-full panel shadow-xl overflow-y-auto focus:outline-none">
-      <div class="sticky top-0 panel border-b border-theme px-4 py-3 flex items-center justify-between">
-        <h2 class="text-lg font-bold">Settings</h2>
-        <button type="button" class="btn-icon" (click)="close()" aria-label="Close">✕</button>
+    <aside class="relative z-50 w-full max-w-md h-full panel-elevated shadow-2xl overflow-y-auto focus:outline-none border-l border-theme">
+      <div class="sticky top-0 z-10 panel-elevated border-b border-theme px-4 py-3 flex items-center justify-between">
+        <h2 class="text-lg font-bold tracking-tight">Settings</h2>
+        <button type="button" class="btn-icon" (click)="close()" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true">
+            <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
       </div>
 
       <div class="p-4 space-y-6">
         <section>
-          <h3 class="font-semibold mb-3">Venues</h3>
-          <div class="space-y-2">
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Venues</h3>
+          <div class="space-y-1">
             @for (ex of exchanges(); track ex.exchange) {
-              <label class="flex items-center justify-between gap-3 py-2">
+              <label class="flex items-center justify-between gap-3 py-2 px-2 rounded-md hover:bg-[var(--row-hover)]">
                 <span class="flex items-center gap-2 text-sm">
-                  <span class="inline-block w-2 h-2 rounded-full"
-                        [class.bg-green-500]="ex.freshness === 'FRESH'"
-                        [class.bg-yellow-500]="ex.freshness === 'STALE'"
-                        [class.bg-gray-400]="ex.freshness === 'NEVER'"></span>
+                  <span class="status-dot"
+                        [class.status-dot-live]="ex.freshness === 'FRESH'"
+                        [class.status-dot-degraded]="ex.freshness === 'STALE'"
+                        [class.status-dot-stale]="ex.freshness === 'NEVER'"></span>
                   {{ ex.exchange }}
                   <span class="text-muted text-xs">({{ ex.offeredQuoteAssets.join(', ') }})</span>
                 </span>
                 <input type="checkbox"
                        [checked]="isExchangeEnabled(ex.exchange)"
                        (change)="settings.toggleExchange(ex.exchange, $any($event.target).checked)"
-                       class="w-5 h-5" />
+                       class="w-5 h-5 accent-[var(--accent)]" />
               </label>
             }
           </div>
         </section>
 
         <section>
-          <h3 class="font-semibold mb-3">Markets</h3>
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Markets</h3>
           @for (quote of config().quoteAssets; track quote) {
             <div class="mb-4">
-              <p class="text-xs uppercase tracking-wide text-muted mb-2">{{ quote }}</p>
-              <div class="space-y-2">
+              <p class="text-xs uppercase tracking-wide text-accent mb-2 font-semibold">{{ quote }}</p>
+              <div class="space-y-1">
                 @for (symbol of symbolsByQuote(quote); track symbol) {
-                  <label class="flex items-center justify-between gap-3 py-1">
+                  <label class="flex items-center justify-between gap-3 py-1 px-2 rounded-md hover:bg-[var(--row-hover)]">
                     <span class="text-sm">{{ symbol }}</span>
                     <input type="checkbox"
                            [checked]="isSymbolEnabled(symbol)"
                            (change)="settings.toggleSymbol(symbol, $any($event.target).checked)"
-                           class="w-5 h-5" />
+                           class="w-5 h-5 accent-[var(--accent)]" />
                   </label>
                 }
               </div>
@@ -52,7 +57,7 @@
         </section>
 
         <section>
-          <h3 class="font-semibold mb-3">Opportunities</h3>
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Opportunities</h3>
           <label class="block text-sm mb-2">Min net spread (%)</label>
           <input type="number" step="0.01" min="0"
                  class="input w-full mb-3"
@@ -62,27 +67,29 @@
             <label class="flex items-center gap-2">
               <input type="radio" name="thresholdMode" [value]="false"
                      [checked]="!settings.settings().hideBelowThreshold"
-                     (change)="patch({ hideBelowThreshold: false })" />
+                     (change)="patch({ hideBelowThreshold: false })"
+                     class="accent-[var(--accent)]" />
               Dim below threshold
             </label>
             <label class="flex items-center gap-2">
               <input type="radio" name="thresholdMode" [value]="true"
                      [checked]="settings.settings().hideBelowThreshold"
-                     (change)="patch({ hideBelowThreshold: true })" />
+                     (change)="patch({ hideBelowThreshold: true })"
+                     class="accent-[var(--accent)]" />
               Hide below threshold
             </label>
           </div>
         </section>
 
         <section>
-          <h3 class="font-semibold mb-3">Appearance</h3>
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Appearance</h3>
           <label class="block text-sm mb-1">Theme</label>
           <select class="input w-full mb-3"
                   [ngModel]="settings.settings().theme"
                   (ngModelChange)="patch({ theme: $event })">
-            <option value="system">System</option>
-            <option value="light">Light</option>
             <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System</option>
           </select>
           <label class="block text-sm mb-1">Density</label>
           <select class="input w-full"
@@ -94,11 +101,11 @@
         </section>
 
         <section>
-          <h3 class="font-semibold mb-3">Advanced</h3>
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Advanced</h3>
           <label class="block text-sm mb-1">
             Freshness window (ms)
             @if (settings.settings().freshnessWindowMsOverride !== null) {
-              <span class="text-amber-600 text-xs ml-1">override active</span>
+              <span class="text-warning text-xs ml-1">override active</span>
             }
           </label>
           <input type="number" class="input w-full mb-3"
@@ -109,7 +116,7 @@
           <label class="block text-sm mb-1">
             Default notional
             @if (settings.settings().defaultNotionalOverride !== null) {
-              <span class="text-amber-600 text-xs ml-1">override active</span>
+              <span class="text-warning text-xs ml-1">override active</span>
             }
           </label>
           <input type="number" class="input w-full"
