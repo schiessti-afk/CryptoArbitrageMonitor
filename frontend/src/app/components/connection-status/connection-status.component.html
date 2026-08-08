@@ -16,9 +16,9 @@
       {{ lastMessageAge() }}
     </p>
 
-    <!-- Exchange Status Chips -->
+    <!-- Exchange Status Chips (only venues offering the selected quote asset) -->
     <div class="flex gap-2 flex-wrap">
-      @for (ex of snapshot()?.exchanges ?? []; track ex.exchange) {
+      @for (ex of visibleExchanges(); track ex.exchange) {
         <span class="px-2 py-1 rounded text-xs font-semibold"
               [ngClass]="getExchangeClass(ex.freshness)">
           {{ ex.exchange }}: {{ ex.freshness }}

@@ -94,7 +94,9 @@ public class PollOrchestrationService {
             return;
         }
 
-        // Step 2: Fetch tickers in parallel from all adapters for all symbols
+        // Step 2: Fetch tickers for every (symbol, adapter) pair in one flattened Flux, not one
+        // sequential round-trip per symbol. At 4 symbols x 5 venues this is the difference
+        // between one round-trip and four.
         Map<String, List<PriceTicker>> tickers = fetchTickersInParallel(activePairs);
 
         if (tickers.isEmpty()) {
@@ -131,37 +133,45 @@ public class PollOrchestrationService {
                 elapsedMs, result.bestPerSymbol.size(), result.fullMatrix.size());
     }
 
+    /**
+     * Fetches every (symbol, adapter) combination in one flattened Flux. Adapters that don't
+     * offer a given symbol (see {@link ExchangeAdapter#supports}) are skipped before any HTTP
+     * call is made — an unlisted market never produces a request, an availability-store update,
+     * or a log line.
+     */
     private Map<String, List<PriceTicker>> fetchTickersInParallel(List<TrackedPair> activePairs) {
-        Map<String, List<PriceTicker>> tickers = new HashMap<>();
+        List<Mono<PriceTicker>> requests = new ArrayList<>();
 
         for (TrackedPair pair : activePairs) {
-            List<PriceTicker> tickersForSymbol = fetchTickersForSymbol(pair.getSymbol());
-            if (!tickersForSymbol.isEmpty()) {
-                tickers.put(pair.getSymbol(), tickersForSymbol);
+            String symbol = pair.getSymbol();
+            for (ExchangeAdapter adapter : adapters) {
+                if (!adapter.supports(symbol)) {
+                    continue;
+                }
+                requests.add(
+                        adapter.getTicker(symbol)
+                                .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange(), symbol))
+                                .onErrorResume(e -> {
+                                    log.warn("Adapter {} failed for {}: {}",
+                                            adapter.getExchange(), symbol, e.getMessage());
+                                    return Mono.empty();
+                                })
+                );
             }
         }
 
-        return tickers;
-    }
-
-    private List<PriceTicker> fetchTickersForSymbol(String symbol) {
-        // Fetch from all adapters in parallel using Reactor
-        List<Mono<PriceTicker>> fetchMono = adapters.stream()
-                .map(adapter -> adapter.getTicker(symbol)
-                        .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange()))
-                        .onErrorResume(e -> {
-                            log.warn("Adapter {} failed for {}: {}",
-                                adapter.getExchange(), symbol, e.getMessage());
-                            return Mono.empty();
-                        })
-                )
-                .toList();
-
-        // Zip all with error collection (continue on partial failure)
-        return Flux.fromIterable(fetchMono)
+        List<PriceTicker> allTickers = Flux.fromIterable(requests)
                 .flatMap(mono -> mono)
                 .collectList()
-                .block(); // Blocking call acceptable here; it's the poll cycle
+                .block(); // Blocking call acceptable here; it's the poll cycle's outermost level
+
+        Map<String, List<PriceTicker>> bySymbol = new HashMap<>();
+        if (allTickers != null) {
+            for (PriceTicker ticker : allTickers) {
+                bySymbol.computeIfAbsent(ticker.symbol(), k -> new ArrayList<>()).add(ticker);
+            }
+        }
+        return bySymbol;
     }
 
     private void persistBestOpportunities(Map<String, SpreadCalculationService.SpreadOpportunity> bestPerSymbol, Instant cycleTimestamp) {

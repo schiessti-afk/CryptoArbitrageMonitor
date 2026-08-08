@@ -18,7 +18,7 @@ No private exchange credentials and no trade execution.
 CryptoArbitrageMonitor/
 ├── backend/                 # Spring Boot 4 (com.cryptoarbitrage.monitor)
 ├── frontend/                # Angular 19 app
-├── docker-compose.yml       # Postgres in Sprint 0; full stack in Sprint 3
+├── docker-compose.yml       # Postgres in Sprint 0; full stack in Sprint 4
 ├── .env.example
 ├── LICENSE
 ├── README.md

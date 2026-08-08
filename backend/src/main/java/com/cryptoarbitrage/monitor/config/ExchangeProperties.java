@@ -1,40 +1,64 @@
 package com.cryptoarbitrage.monitor.config;
 
+import com.cryptoarbitrage.monitor.exchange.Exchange;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * Binds {@code exchange.adapters.<name>.*} for every configured venue.
+ *
+ * A venue's {@code markets} map lists exactly the internal symbols (e.g. {@code BTC_USD},
+ * {@code BTC_USDT}) it actually offers. Absence of an entry means the venue does not list that
+ * market — this is the single source of truth {@link com.cryptoarbitrage.monitor.exchange.ExchangeAdapter#supports}
+ * and {@link MarketConfigValidator} both read from, so adding or removing a market for a venue is
+ * a config-only change.
+ */
 @Component
 @ConfigurationProperties(prefix = "exchange")
 public class ExchangeProperties {
 
-    private ExchangeConfig binance = new ExchangeConfig();
-    private ExchangeConfig kraken = new ExchangeConfig();
-    private ExchangeConfig coinbase = new ExchangeConfig();
+    private Map<String, ExchangeConfig> adapters = new HashMap<>();
+
+    public Map<String, ExchangeConfig> getAdapters() {
+        return adapters;
+    }
+
+    public void setAdapters(Map<String, ExchangeConfig> adapters) {
+        this.adapters = adapters;
+    }
+
+    /**
+     * Distinct quote assets a venue offers at all (e.g. {@code {"USD", "USDT"}} for Binance,
+     * {@code {"USDT"}} for Bitget). Used to filter which venues appear as status chips when the
+     * frontend's quote-asset toggle is set to a value this venue doesn't offer.
+     */
+    public Set<String> getOfferedQuoteAssets(Exchange exchange) {
+        ExchangeConfig config = adapters.get(exchange.name().toLowerCase());
+        if (config == null) {
+            return Set.of();
+        }
+        return config.getMarkets().values().stream()
+                .map(MarketConfig::getQuoteAsset)
+                .collect(Collectors.toSet());
+    }
 
     public static class ExchangeConfig {
         private String baseUrl;
-        private Map<String, String> symbolMap = new HashMap<>();
         private long connectTimeoutMs = 5000;
         private long responseTimeoutMs = 10000;
+        private Map<String, MarketConfig> markets = new HashMap<>();
 
-        // Getters and setters
         public String getBaseUrl() {
             return baseUrl;
         }
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
-        }
-
-        public Map<String, String> getSymbolMap() {
-            return symbolMap;
-        }
-
-        public void setSymbolMap(Map<String, String> symbolMap) {
-            this.symbolMap = symbolMap;
         }
 
         public long getConnectTimeoutMs() {
@@ -52,37 +76,41 @@ public class ExchangeProperties {
         public void setResponseTimeoutMs(long responseTimeoutMs) {
             this.responseTimeoutMs = responseTimeoutMs;
         }
+
+        public Map<String, MarketConfig> getMarkets() {
+            return markets;
+        }
+
+        public void setMarkets(Map<String, MarketConfig> markets) {
+            this.markets = markets;
+        }
+
+        /**
+         * Look up a market by internal symbol (e.g. "BTC/USD" -> config key "BTC_USD").
+         */
+        public MarketConfig getMarket(String internalSymbol) {
+            return markets.get(internalSymbol.replace("/", "_"));
+        }
     }
 
-    public ExchangeConfig getBinance() {
-        return binance;
-    }
+    public static class MarketConfig {
+        private String nativeSymbol;
+        private String quoteAsset;
 
-    public void setBinance(ExchangeConfig binance) {
-        this.binance = binance;
-    }
+        public String getNativeSymbol() {
+            return nativeSymbol;
+        }
 
-    public ExchangeConfig getKraken() {
-        return kraken;
-    }
+        public void setNativeSymbol(String nativeSymbol) {
+            this.nativeSymbol = nativeSymbol;
+        }
 
-    public void setKraken(ExchangeConfig kraken) {
-        this.kraken = kraken;
-    }
+        public String getQuoteAsset() {
+            return quoteAsset;
+        }
 
-    public ExchangeConfig getCoinbase() {
-        return coinbase;
-    }
-
-    public void setCoinbase(ExchangeConfig coinbase) {
-        this.coinbase = coinbase;
-    }
-
-    public Map<String, ExchangeConfig> getAdapters() {
-        Map<String, ExchangeConfig> adapters = new HashMap<>();
-        adapters.put("binance", binance);
-        adapters.put("kraken", kraken);
-        adapters.put("coinbase", coinbase);
-        return adapters;
+        public void setQuoteAsset(String quoteAsset) {
+            this.quoteAsset = quoteAsset;
+        }
     }
 }

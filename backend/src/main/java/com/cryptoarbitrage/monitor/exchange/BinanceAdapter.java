@@ -36,13 +36,18 @@ public class BinanceAdapter implements ExchangeAdapter {
     }
 
     @Override
+    public boolean supports(String internalSymbol) {
+        return market(internalSymbol) != null;
+    }
+
+    @Override
     public Mono<PriceTicker> getTicker(String internalSymbol) {
-        // Map internal symbol to Binance native symbol
-        String nativeSymbol = mapToNativeSymbol(internalSymbol);
-        if (nativeSymbol == null) {
-            log.warn("Binance: unknown internal symbol {}", internalSymbol);
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            // Not offered by this venue — not a failure, nothing to poll or log.
             return Mono.empty();
         }
+        String nativeSymbol = market.getNativeSymbol();
 
         return webClient.get()
                 .uri("/api/v3/ticker/bookTicker?symbol={symbol}", nativeSymbol)
@@ -53,21 +58,19 @@ public class BinanceAdapter implements ExchangeAdapter {
                 })
                 .bodyToMono(String.class)
                 .map(this::parseJson)
-                .map(json -> parseTicker(json, internalSymbol))
+                .map(json -> parseTicker(json, internalSymbol, market))
                 .onErrorResume(e -> {
                     log.warn("Binance: error fetching {}: {}", internalSymbol, e.getMessage());
                     return Mono.empty();
                 });
     }
 
-    private String mapToNativeSymbol(String internalSymbol) {
+    private ExchangeProperties.MarketConfig market(String internalSymbol) {
         ExchangeProperties.ExchangeConfig config = exchangeProperties.getAdapters().get("binance");
         if (config == null) {
             return null;
         }
-        // Convert BTC/USD → BTC_USD for config lookup
-        String configKey = internalSymbol.replace("/", "_");
-        return config.getSymbolMap().get(configKey);
+        return config.getMarket(internalSymbol);
     }
 
     private JsonNode parseJson(String body) {
@@ -78,7 +81,7 @@ public class BinanceAdapter implements ExchangeAdapter {
         }
     }
 
-    private PriceTicker parseTicker(JsonNode json, String internalSymbol) {
+    private PriceTicker parseTicker(JsonNode json, String internalSymbol, ExchangeProperties.MarketConfig market) {
         if (json == null || json.isMissingNode()) {
             throw new IllegalArgumentException("Binance response is missing or null");
         }
@@ -90,13 +93,11 @@ public class BinanceAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Binance: invalid bid/ask prices");
         }
 
-        String nativeSymbol = mapToNativeSymbol(internalSymbol);
-
         return new PriceTicker(
                 Exchange.BINANCE,
                 internalSymbol,
-                nativeSymbol,
-                "USD",
+                market.getNativeSymbol(),
+                market.getQuoteAsset(),
                 bid,
                 ask,
                 Instant.now()

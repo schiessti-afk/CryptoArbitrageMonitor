@@ -23,7 +23,7 @@ This application does **not** execute trades. Displayed values are **indicative 
 | Backend | Java 17+, Spring Boot 4, WebClient, WebSocket/STOMP/SockJS, Spring Data JPA, Flyway |
 | Frontend | Angular 19, TypeScript, RxJS, Signals, STOMP/SockJS client, Tailwind CSS |
 | Data | PostgreSQL |
-| Runtime | Docker Compose (PostgreSQL now; backend + Nginx-served Angular in Sprint 3) |
+| Runtime | Docker Compose (PostgreSQL now; backend + Nginx-served Angular in Sprint 4) |
 
 Java package root: `com.cryptoarbitrage.monitor`
 
@@ -86,7 +86,7 @@ These are **USD markets**, not USDT stand-ins. Each adapter maps the exchange-na
 
 **Today (Sprint 0):** Postgres via Compose; run backend and frontend locally (see above).
 
-**After Sprint 3:**
+**After Sprint 4:**
 
 ```bash
 docker compose up --build
@@ -96,7 +96,7 @@ Typical local URLs:
 
 - Angular dev server: `http://localhost:4200`
 - Backend API: `http://localhost:8080`
-- Production-style dashboard (Sprint 3+): `http://localhost`
+- Production-style dashboard (Sprint 4+): `http://localhost`
 
 ### Environment
 

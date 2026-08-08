@@ -1,6 +1,7 @@
 import { Component, signal, effect, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WebsocketService } from '../../services/websocket.service';
+import { QuoteAssetService } from '../../services/quote-asset.service';
 
 type ConnectionBadge = 'LIVE' | 'DEGRADED' | 'STALE';
 
@@ -20,11 +21,13 @@ export class ConnectionStatusComponent implements OnInit, OnDestroy {
 
   constructor(
     public websocket: WebsocketService,
+    public quoteAsset: QuoteAssetService,
     private ngZone: NgZone
   ) {
     effect(() => {
       const snap = this.websocket.snapshot();
       const currentNow = this.now();
+      const selectedQuote = this.quoteAsset.selected();
 
       if (!snap) {
         this.lastMessageAge.set('—');
@@ -35,10 +38,14 @@ export class ConnectionStatusComponent implements OnInit, OnDestroy {
       const receivedAtMs = new Date(snap.calculatedAt).getTime();
       const ageSeconds = (currentNow - receivedAtMs) / 1000;
 
+      // liveByQuote reflects only the venues relevant to the selected quote asset — a USD outage
+      // must not read as DEGRADED while looking at USDT, and vice versa.
+      const liveForSelectedQuote = snap.liveByQuote?.[selectedQuote] ?? snap.live;
+
       if (ageSeconds > 10) {
         this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
         this.badge.set('STALE');
-      } else if (!snap.live) {
+      } else if (!liveForSelectedQuote) {
         this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
         this.badge.set('DEGRADED');
       } else {
@@ -66,6 +73,15 @@ export class ConnectionStatusComponent implements OnInit, OnDestroy {
 
   snapshot() {
     return this.websocket.snapshot();
+  }
+
+  // Only venues that actually list the selected quote asset are shown — a venue that simply
+  // doesn't offer USD (e.g. Bitget, KuCoin) must never render as if it had failed to report one.
+  visibleExchanges() {
+    const selected = this.quoteAsset.selected();
+    return (this.snapshot()?.exchanges ?? []).filter(ex =>
+      ex.offeredQuoteAssets?.includes(selected)
+    );
   }
 
   getExchangeClass(freshness: string): string {

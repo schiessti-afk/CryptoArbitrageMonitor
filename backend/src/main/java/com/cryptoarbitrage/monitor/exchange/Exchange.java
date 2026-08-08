@@ -3,7 +3,9 @@ package com.cryptoarbitrage.monitor.exchange;
 public enum Exchange {
     BINANCE,
     KRAKEN,
-    COINBASE;
+    COINBASE,
+    BITGET,
+    KUCOIN;
 
     @Override
     public String toString() {

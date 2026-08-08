@@ -1,12 +1,14 @@
 package com.cryptoarbitrage.monitor.dto;
 
-import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public record AppConfigDto(
-        int defaultNotional,
-        int freshnessWindowMs,
+        BigDecimal defaultNotional,
+        long freshnessWindowMs,
         double neutralEpsilonPercent,
-        List<FeeDto> fees
+        List<FeeDto> fees,
+        List<String> quoteAssets
 ) {
 }

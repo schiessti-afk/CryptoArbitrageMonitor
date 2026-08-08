@@ -2,6 +2,7 @@ package com.cryptoarbitrage.monitor.dto;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public record SpreadSnapshotDto(
         Instant calculatedAt,
@@ -9,6 +10,8 @@ public record SpreadSnapshotDto(
         List<SpreadDto> bestPerSymbol,
         List<ExchangeStatusDto> exchanges,
         int freshExchangeCount,
-        boolean live
+        boolean live,
+        Map<String, Boolean> liveByQuote,
+        Map<String, Integer> freshCountByQuote
 ) {
 }

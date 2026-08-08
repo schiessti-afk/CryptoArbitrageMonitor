@@ -9,6 +9,13 @@ import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
 
+/**
+ * One {@link WebClient} bean per configured exchange, each read from {@link ExchangeProperties}
+ * by adapter key. Explicit {@code @Bean} methods (rather than registering singletons dynamically
+ * from the map) so bean creation order stays whatever Spring's dependency graph resolves —
+ * adapters injecting via {@code @Qualifier} are never at risk of racing this class's own
+ * initialization.
+ */
 @Configuration
 public class WebClientConfig {
 
@@ -27,9 +34,19 @@ public class WebClientConfig {
         return createWebClient(props.getAdapters().get("coinbase"));
     }
 
+    @Bean
+    public WebClient bitgetWebClient(ExchangeProperties props) {
+        return createWebClient(props.getAdapters().get("bitget"));
+    }
+
+    @Bean
+    public WebClient kucoinWebClient(ExchangeProperties props) {
+        return createWebClient(props.getAdapters().get("kucoin"));
+    }
+
     private WebClient createWebClient(ExchangeProperties.ExchangeConfig config) {
-        if (config == null) {
-            throw new IllegalArgumentException("Exchange config is null");
+        if (config == null || config.getBaseUrl() == null) {
+            throw new IllegalArgumentException("Exchange config or base-url is missing");
         }
 
         HttpClient httpClient = HttpClient.create()

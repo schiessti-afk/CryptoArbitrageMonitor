@@ -13,17 +13,28 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/**
+ * KuCoin level-1 orderbook ticker. USDT-only for BTC/ETH — no BTC/USD or ETH/USD market exists.
+ * {@link #supports(String)} reflects that via config presence, so this adapter is never polled
+ * for a USD market.
+ *
+ * <p><b>Important gotcha (verified live):</b> an unknown symbol does NOT return a non-2xx HTTP
+ * status. It returns HTTP 200 with {@code {"code":"200000","data":null}}. The standard
+ * {@code onStatus} failure check cannot catch this — {@link #parseTicker} must explicitly check
+ * for a null {@code data} node, or a {@link com.fasterxml.jackson.databind.node.NullNode} field
+ * access downstream throws an unguarded NPE instead of a clean adapter error.</p>
+ */
 @Component
-public class CoinbaseAdapter implements ExchangeAdapter {
+public class KuCoinAdapter implements ExchangeAdapter {
 
-    private static final Logger log = LoggerFactory.getLogger(CoinbaseAdapter.class);
+    private static final Logger log = LoggerFactory.getLogger(KuCoinAdapter.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final WebClient webClient;
     private final ExchangeProperties exchangeProperties;
 
-    public CoinbaseAdapter(
-            @Qualifier("coinbaseWebClient") WebClient webClient,
+    public KuCoinAdapter(
+            @Qualifier("kucoinWebClient") WebClient webClient,
             ExchangeProperties exchangeProperties
     ) {
         this.webClient = webClient;
@@ -32,7 +43,7 @@ public class CoinbaseAdapter implements ExchangeAdapter {
 
     @Override
     public Exchange getExchange() {
-        return Exchange.COINBASE;
+        return Exchange.KUCOIN;
     }
 
     @Override
@@ -50,23 +61,23 @@ public class CoinbaseAdapter implements ExchangeAdapter {
         String nativeSymbol = market.getNativeSymbol();
 
         return webClient.get()
-                .uri("/products/{productId}/ticker", nativeSymbol)
+                .uri("/api/v1/market/orderbook/level1?symbol={symbol}", nativeSymbol)
                 .retrieve()
                 .onStatus(status -> !status.is2xxSuccessful(), response -> {
-                    log.warn("Coinbase: HTTP {} for symbol {}", response.statusCode().value(), nativeSymbol);
+                    log.warn("KuCoin: HTTP {} for symbol {}", response.statusCode().value(), nativeSymbol);
                     return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
                 })
                 .bodyToMono(String.class)
                 .map(this::parseJson)
                 .map(json -> parseTicker(json, internalSymbol, market))
                 .onErrorResume(e -> {
-                    log.warn("Coinbase: error fetching {}: {}", internalSymbol, e.getMessage());
+                    log.warn("KuCoin: error fetching {}: {}", internalSymbol, e.getMessage());
                     return Mono.empty();
                 });
     }
 
     private ExchangeProperties.MarketConfig market(String internalSymbol) {
-        ExchangeProperties.ExchangeConfig config = exchangeProperties.getAdapters().get("coinbase");
+        ExchangeProperties.ExchangeConfig config = exchangeProperties.getAdapters().get("kucoin");
         if (config == null) {
             return null;
         }
@@ -77,25 +88,37 @@ public class CoinbaseAdapter implements ExchangeAdapter {
         try {
             return MAPPER.readTree(body);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Coinbase: failed to parse response JSON", e);
+            throw new IllegalArgumentException("KuCoin: failed to parse response JSON", e);
         }
     }
 
     private PriceTicker parseTicker(JsonNode json, String internalSymbol, ExchangeProperties.MarketConfig market) {
         if (json == null || json.isMissingNode()) {
-            throw new IllegalArgumentException("Coinbase response is missing or null");
+            throw new IllegalArgumentException("KuCoin response is missing or null");
         }
 
-        // Coinbase format: "bid": "...", "ask": "..."
-        BigDecimal bid = new BigDecimal(json.get("bid").asText());
-        BigDecimal ask = new BigDecimal(json.get("ask").asText());
+        // KuCoin's unknown-symbol response is HTTP 200 with {"code":"200000","data":null} —
+        // this null check is the actual error boundary, not the HTTP status.
+        JsonNode data = json.get("data");
+        if (data == null || data.isNull() || data.isMissingNode()) {
+            throw new IllegalArgumentException("KuCoin: no data for symbol (unknown or delisted market)");
+        }
+
+        JsonNode bestBid = data.get("bestBid");
+        JsonNode bestAsk = data.get("bestAsk");
+        if (bestBid == null || bestBid.isNull() || bestAsk == null || bestAsk.isNull()) {
+            throw new IllegalArgumentException("KuCoin: missing bestBid or bestAsk");
+        }
+
+        BigDecimal bid = new BigDecimal(bestBid.asText());
+        BigDecimal ask = new BigDecimal(bestAsk.asText());
 
         if (bid.signum() <= 0 || ask.signum() <= 0) {
-            throw new IllegalArgumentException("Coinbase: invalid bid/ask prices");
+            throw new IllegalArgumentException("KuCoin: invalid bid/ask prices");
         }
 
         return new PriceTicker(
-                Exchange.COINBASE,
+                Exchange.KUCOIN,
                 internalSymbol,
                 market.getNativeSymbol(),
                 market.getQuoteAsset(),

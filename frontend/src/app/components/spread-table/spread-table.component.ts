@@ -1,4 +1,4 @@
-import { Component, Input, computed } from '@angular/core';
+import { Component, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity } from '../../models/spread.model';
 import { getStateClasses, getSpreadState } from '../../utils/spread-state';
@@ -16,13 +16,19 @@ interface MatrixGroup {
   styles: []
 })
 export class SpreadTableComponent {
-  @Input() matrix: SpreadOpportunity[] = [];
-  @Input() notional = 1000;
+  // Signal inputs (not @Input()) — groupedMatrix below is a computed() that reads matrix()
+  // synchronously, which is what makes it a tracked dependency. A plain @Input() property read
+  // inside computed() establishes no dependency at all: computed() only re-runs when a *signal*
+  // it read changes, so with a plain @Input it evaluates once (usually against the empty default,
+  // before the first WebSocket message arrives) and then never updates again, no matter how much
+  // new data flows in — this was the exact cause of "Full Matrix shows nothing forever."
+  matrix = input<SpreadOpportunity[]>([]);
+  notional = input<number>(1000);
 
   groupedMatrix = computed(() => {
     const groups = new Map<string, SpreadOpportunity[]>();
 
-    for (const row of this.matrix) {
+    for (const row of this.matrix()) {
       if (!groups.has(row.symbol)) {
         groups.set(row.symbol, []);
       }

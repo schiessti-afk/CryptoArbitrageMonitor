@@ -1,6 +1,7 @@
 package com.cryptoarbitrage.monitor.controller;
 
 import com.cryptoarbitrage.monitor.config.AppProperties;
+import com.cryptoarbitrage.monitor.config.ExchangeProperties;
 import com.cryptoarbitrage.monitor.dto.AppConfigDto;
 import com.cryptoarbitrage.monitor.dto.ExchangeStatusDto;
 import com.cryptoarbitrage.monitor.dto.FeeDto;
@@ -32,19 +33,22 @@ public class SpreadController {
     private final ExchangeAvailabilityStore availabilityStore;
     private final SpreadLogRepository spreadLogRepository;
     private final AppProperties appProperties;
+    private final ExchangeProperties exchangeProperties;
 
     public SpreadController(
             TrackedPairRepository trackedPairRepository,
             FeeService feeService,
             ExchangeAvailabilityStore availabilityStore,
             SpreadLogRepository spreadLogRepository,
-            AppProperties appProperties
+            AppProperties appProperties,
+            ExchangeProperties exchangeProperties
     ) {
         this.trackedPairRepository = trackedPairRepository;
         this.feeService = feeService;
         this.availabilityStore = availabilityStore;
         this.spreadLogRepository = spreadLogRepository;
         this.appProperties = appProperties;
+        this.exchangeProperties = exchangeProperties;
     }
 
     /**
@@ -67,9 +71,11 @@ public class SpreadController {
         long freshnessWindow = appProperties.getPolling().getFreshnessWindowMs();
         List<ExchangeStatusDto> statuses = Arrays.stream(Exchange.values())
                 .map(exchange -> {
-                    Instant lastUpdate = availabilityStore.getLastReceivedAt(exchange);
-                    boolean isFresh = availabilityStore.isFresh(exchange, freshnessWindow);
-                    return ExchangeStatusDto.from(exchange, lastUpdate, isFresh);
+                    Instant lastUpdate = availabilityStore.getLastReceivedAtAny(exchange);
+                    boolean isFresh = availabilityStore.isFreshAny(exchange, freshnessWindow);
+                    List<String> offeredQuoteAssets = exchangeProperties.getOfferedQuoteAssets(exchange)
+                            .stream().sorted().toList();
+                    return ExchangeStatusDto.from(exchange, lastUpdate, isFresh, offeredQuoteAssets);
                 })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(statuses);
@@ -116,11 +122,20 @@ public class SpreadController {
                 .map(e -> new FeeDto(e.getKey().name(), e.getValue(), Instant.now()))
                 .toList();
 
+        // Quote assets are derived from active tracked pairs, not hardcoded — adding a third
+        // quote universe later is then a migration + config change, no controller edit.
+        List<String> quoteAssets = trackedPairRepository.findByActiveTrue().stream()
+                .map(pair -> pair.getQuoteCurrency())
+                .distinct()
+                .sorted()
+                .toList();
+
         return ResponseEntity.ok(new AppConfigDto(
                 appProperties.getInvestment().getDefaultNotional(),
                 appProperties.getPolling().getFreshnessWindowMs(),
                 0.001,  // neutralEpsilonPercent (0.001% = 0.00001)
-                fees
+                fees,
+                quoteAssets
         ));
     }
 

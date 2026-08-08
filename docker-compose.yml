@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # backend and frontend images are added in Sprint 3.
+  # backend and frontend images are added in Sprint 4.
   # Until then, run them locally against this Postgres instance.
 
 volumes:

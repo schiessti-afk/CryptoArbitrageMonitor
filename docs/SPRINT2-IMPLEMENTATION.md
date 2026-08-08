@@ -1272,6 +1272,299 @@ describe('spreadState', () => {
 });
 ```
 
+---
+
+## Bitget, KuCoin, and the USD/USDT Toggle — Implementation
+
+**Status: implemented and verified.** Backend compiles and its unit-test suite passes on JDK 17
+(`./gradlew test`, 31/32 tests green — the one failure, `SpreadLogRepositoryIntegrationTest`, needs
+a local Docker daemon for Testcontainers and is unrelated to this change). Frontend builds clean
+with `ng build` (zero errors, zero warnings after a minor template touch-up). All API shapes below
+were verified against the **live** Bitget and KuCoin public endpoints before being encoded into
+adapters, fixtures, and config — not assumed from documentation.
+
+### Verified availability matrix
+
+| Venue | BTC/USD | ETH/USD | BTC/USDT | ETH/USDT |
+|---|---|---|---|---|
+| Binance | ✓ `BTCUSD` | ✓ `ETHUSD` | ✓ `BTCUSDT` | ✓ `ETHUSDT` |
+| Kraken | ✓ `XXBTZUSD` | ✓ `XETHZUSD` | ✓ `XBTUSDT` | ✓ `ETHUSDT` |
+| Coinbase | ✓ `BTC-USD` | ✓ `ETH-USD` | ✓ `BTC-USDT` | ✓ `ETH-USDT` |
+| Bitget | HTTP 400, code `40034` | — | ✓ `BTCUSDT` | ✓ `ETHUSDT` |
+| KuCoin | HTTP 200, `data: null` | — | ✓ `BTC-USDT` | ✓ `ETH-USDT` |
+
+### Backend: `ExchangeProperties` — flat fields → map-based nested markets
+
+**Before:** three hardcoded fields (`binance`, `kraken`, `coinbase`), each with its own getter/
+setter, plus `getAdapters()` rebuilding a `HashMap` on every call. Symbol mapping was
+`Map<String,String> symbolMap` — no way to express which quote asset a market used, or that a
+venue simply didn't offer a market at all.
+
+**After** ([ExchangeProperties.java](../backend/src/main/java/com/cryptoarbitrage/monitor/config/ExchangeProperties.java)):
+
+```java
+@ConfigurationProperties(prefix = "exchange")
+public class ExchangeProperties {
+    private Map<String, ExchangeConfig> adapters = new HashMap<>();   // key: "binance", "bitget", ...
+
+    public static class ExchangeConfig {
+        private String baseUrl;
+        private long connectTimeoutMs = 5000;
+        private long responseTimeoutMs = 10000;
+        private Map<String, MarketConfig> markets = new HashMap<>();  // key: "BTC_USD", "BTC_USDT", ...
+
+        public MarketConfig getMarket(String internalSymbol) {
+            return markets.get(internalSymbol.replace("/", "_"));
+        }
+    }
+
+    public static class MarketConfig {
+        private String nativeSymbol;   // e.g. "BTCUSDT", "XBTUSDT", "BTC-USDT"
+        private String quoteAsset;     // "USD" or "USDT"
+    }
+
+    public Set<String> getOfferedQuoteAssets(Exchange exchange) {
+        // distinct quoteAsset values across this venue's markets — feeds ExchangeStatusDto
+        // and the frontend's chip filter
+    }
+}
+```
+
+A venue's `markets` map is now the single source of truth for what it offers. Absence of a
+`BTC_USD` entry for Bitget **is** the fact that Bitget doesn't list `BTC/USD` — nothing else needs
+to encode that separately.
+
+`application.properties` gained the full nested config for all five venues:
+
+```properties
+exchange.adapters.bitget.base-url=https://api.bitget.com
+exchange.adapters.bitget.markets.BTC_USDT.native-symbol=BTCUSDT
+exchange.adapters.bitget.markets.BTC_USDT.quote-asset=USDT
+exchange.adapters.bitget.markets.ETH_USDT.native-symbol=ETHUSDT
+exchange.adapters.bitget.markets.ETH_USDT.quote-asset=USDT
+# no BTC_USD / ETH_USD entries — Bitget does not list them
+
+exchange.adapters.kraken.markets.BTC_USDT.native-symbol=XBTUSDT   # not XXBTZUSDT — see note below
+exchange.adapters.kraken.markets.BTC_USDT.quote-asset=USDT
+```
+
+**`WebClientConfig`** kept five explicit `@Bean` methods rather than dynamically registering
+`WebClient` singletons from the map. A `@PostConstruct`-driven dynamic-registration approach was
+drafted and rejected: adapters resolve their client via `@Qualifier("bitgetWebClient")` constructor
+injection, and Spring's bean-creation order relative to another bean's `@PostConstruct` is not
+guaranteed — a race there would surface as an intermittent "no qualifying bean" startup failure.
+Five one-line `@Bean` methods reading from the map by key carry none of that risk.
+
+### Backend: not-offered vs failed — `ExchangeAdapter#supports`
+
+```java
+public interface ExchangeAdapter {
+    Exchange getExchange();
+    boolean supports(String internalSymbol);   // NEW
+    Mono<PriceTicker> getTicker(String internalSymbol);
+}
+```
+
+Every adapter implements it as `market(internalSymbol) != null`. `PollOrchestrationService` checks
+`supports()` before building any request:
+
+```java
+for (TrackedPair pair : activePairs) {
+    for (ExchangeAdapter adapter : adapters) {
+        if (!adapter.supports(pair.getSymbol())) {
+            continue;   // no request, no availability-store update, no WARN log
+        }
+        requests.add(adapter.getTicker(pair.getSymbol())
+                .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange(), pair.getSymbol()))
+                .onErrorResume(e -> { log.warn(...); return Mono.empty(); }));
+    }
+}
+```
+
+Without this, Bitget would be polled for `BTC/USD` every 3 seconds forever, log a warning every
+cycle, and render as `NEVER` in the UI — indistinguishable from an actual outage.
+
+### Backend: per-(exchange, symbol) freshness
+
+**[ExchangeAvailabilityStore.java](../backend/src/main/java/com/cryptoarbitrage/monitor/service/ExchangeAvailabilityStore.java)**
+widened its key from `Exchange` to `record Key(Exchange exchange, String symbol)`. New methods:
+
+- `recordSuccess(Exchange, String symbol)`, `isFresh(Exchange, String symbol, long)` — per-pair facts
+- `countFreshForSymbol(String symbol, long)` — distinct exchanges fresh for one symbol; the direct
+  input to per-quote-asset LIVE computation
+- `isFreshAny(Exchange, long)`, `getLastReceivedAtAny(Exchange)` — aggregate across whatever
+  symbols that exchange has ever reported for, used for the venue-level chip
+
+**[SpreadPublisher.java](../backend/src/main/java/com/cryptoarbitrage/monitor/service/SpreadPublisher.java)**
+now groups active `tracked_pair` rows by `quoteCurrency` (the authoritative per-symbol mapping —
+not inferred from live ticker data, so it stays correct even when a quote universe has zero fresh
+venues) and publishes:
+
+```java
+Map<String, Boolean> liveByQuote;       // {"USD": false, "USDT": true}
+Map<String, Integer> freshCountByQuote; // {"USD": 0, "USDT": 2}
+```
+
+alongside the pre-existing global `freshExchangeCount` / `live` (kept for any consumer that only
+wants an overall signal). This is the fix for the bug the design exists to prevent: three USD
+venues down while Bitget/KuCoin (USDT-only) are healthy previously read as globally LIVE
+(`freshCount ≥ 2`) while the USD view being displayed was actually empty — now `liveByQuote.USD` is
+independently `false`.
+
+`ExchangeStatusDto` gained `offeredQuoteAssets: List<String>`, sourced from
+`exchangeProperties.getOfferedQuoteAssets(exchange)`, so the frontend can hide a venue's chip
+entirely when it doesn't offer the selected quote asset, rather than showing it as `NEVER`.
+
+### Backend: `BitgetAdapter` and `KuCoinAdapter`
+
+**BitgetAdapter** — `GET /api/v2/spot/market/tickers?symbol={native}`. Response envelope is
+`{"code": "00000", "data": [{...}]}` — note `data` is an **array**, the only adapter where that's
+true. Parsing checks `code != "00000"` first (independent of HTTP status, since a hypothetical
+future error path could return 200 with a failure code), then checks for an empty `data` array.
+Live-verified error case: unknown symbol → HTTP 400, code `"40034"`,
+`"Parameter BTCUSD does not exist"`.
+
+**KuCoinAdapter** — `GET /api/v1/market/orderbook/level1?symbol={native}`. Response is
+`{"code": "200000", "data": {"bestBid": "...", "bestAsk": "..."}}`. **The gotcha, verified live:**
+an unknown symbol returns **HTTP 200** with `{"code":"200000","data":null}`. The adapter's existing
+`onStatus(status -> !status.is2xxSuccessful(), ...)` pattern — reused from every other adapter —
+cannot catch this at all, since the status genuinely is 200. `parseTicker` has an explicit guard:
+
+```java
+JsonNode data = json.get("data");
+if (data == null || data.isNull() || data.isMissingNode()) {
+    throw new IllegalArgumentException("KuCoin: no data for symbol (unknown or delisted market)");
+}
+```
+
+Without this check, `data.get("bestBid")` on a `NullNode` throws an unguarded `NullPointerException`
+instead of resolving to a clean, logged adapter failure. Covered by
+`KuCoinAdapterTest#testGetTicker_NullDataOnHttp200_ReturnsEmptyNotNpe`, which asserts
+`assertDoesNotThrow(...)` around exactly this call path.
+
+Both adapters set `quoteAsset = market.getQuoteAsset()` (i.e. `"USDT"`) on the `PriceTicker` they
+return — the field added earlier in Sprint 2 for exactly this purpose.
+
+### Backend: `Exchange` enum, `V3` migration, poll-cycle flattening
+
+`Exchange` gained `BITGET`, `KUCOIN`. New migration
+[V3__add_usdt_universe.sql](../backend/src/main/resources/db/migration/V3__add_usdt_universe.sql):
+
+```sql
+INSERT INTO tracked_pair (symbol, base_currency, quote_currency, active) VALUES
+    ('BTC/USDT', 'BTC', 'USDT', TRUE),
+    ('ETH/USDT', 'ETH', 'USDT', TRUE);
+
+INSERT INTO exchange_fee (exchange, taker_fee) VALUES
+    ('BITGET', 0.001),
+    ('KUCOIN', 0.001);
+```
+
+**`PollOrchestrationService.fetchTickersInParallel`** — previously looped `activePairs`
+sequentially, fanning out only across adapters per symbol (2 symbols meant 2 sequential blocking
+rounds). Now builds one flat list of `Mono<PriceTicker>` over the full symbol × adapter
+cross-product (skipping unsupported combinations via `supports()`), and resolves it with a single
+`Flux.fromIterable(...).flatMap(...).collectList().block()`. At 4 symbols × up to 5 venues each,
+this is the difference between one round-trip per cycle and up to four.
+
+### Backend: `MarketConfigValidator` — now a real invariant, not a no-op
+
+The validator from the earlier Sprint 2 pass hardcoded `"USD"` for every symbol it saw (`// For
+now, we hardcode USD since the config doesn't distinguish quote assets yet`) — it could structurally
+never fire. Rewritten to read the actual `quoteAsset` per market from config and warn if one
+internal symbol is configured with more than one quote asset across venues — a genuine config-typo
+guard now that `quoteAsset` carries real, varying values.
+
+### Frontend: `QuoteAssetService` and the toggle
+
+**[quote-asset.service.ts](../frontend/src/app/services/quote-asset.service.ts)** — one signal
+(`selected: string`, default `"USD"`), persisted to `localStorage` under a namespaced key, with
+try/catch around storage access (private browsing can throw). Injected into `DashboardComponent`
+and `ConnectionStatusComponent` — the two places that need to filter by it.
+
+**`DashboardComponent`** — added a segmented toggle in the header, populated from
+`config().quoteAssets` (itself now derived from distinct `tracked_pair.quote_currency` values via
+`/api/config`, not hardcoded). Three computed signals filter the WebSocket snapshot by
+`symbol.endsWith('/' + selectedQuote)`:
+
+```typescript
+private matchesSelectedQuote = (symbol: string) => symbol.endsWith('/' + this.quoteAsset.selected());
+
+opportunities = computed(() => (this.websocket.snapshot()?.bestPerSymbol ?? []).filter(o => this.matchesSelectedQuote(o.symbol)));
+matrix = computed(() => (this.websocket.snapshot()?.matrix ?? []).filter(o => this.matchesSelectedQuote(o.symbol)));
+
+venueSummary = computed(() => {
+    // Built from buyNativeSymbol/sellNativeSymbol actually present in the filtered matrix —
+    // never a hardcoded string, so it's correct under either quote asset.
+});
+```
+
+`SpreadDetailComponent` and `SpreadTableComponent` needed **no changes** for filtering — they
+already receive `[opportunities]="opportunities()"` / `[matrix]="matrix()"` as inputs, so they
+simply render whatever the dashboard already filtered. This was a deliberate design choice: one
+filter point, not one per consuming component.
+
+The hardcoded tooltip text from the earlier Sprint 2 pass (`"Each exchange is polled on its own
+native market (Binance BTCUSD, Kraken XXBTZUSD, Coinbase BTC-USD)..."`) was removed from
+`SpreadDetailComponent` and replaced by the dashboard-level `venueSummary()` tooltip — the old text
+would have been actively wrong when viewing USDT.
+
+### Frontend: `ConnectionStatusComponent` — per-quote badge and chip filtering
+
+```typescript
+const liveForSelectedQuote = snap.liveByQuote?.[selectedQuote] ?? snap.live;   // fallback for safety
+// ... STALE (age > 10s) > DEGRADED (!liveForSelectedQuote) > LIVE, same precedence as before
+
+visibleExchanges() {
+  const selected = this.quoteAsset.selected();
+  return (this.snapshot()?.exchanges ?? []).filter(ex => ex.offeredQuoteAssets?.includes(selected));
+}
+```
+
+Switching the toggle to USD now removes Bitget and KuCoin's chips from the row entirely, rather
+than rendering them as `NEVER` — the exact failure mode the "not-offered vs failed" distinction
+(backend section above) exists to prevent from ever reaching the UI.
+
+### Testing performed
+
+**Backend** (`./gradlew test`, JDK 17 — this repo's toolchain requires 17+; the earlier build
+blocker from `AppConfigDto`'s type mismatch was also fixed as part of this pass):
+
+| Test class | What it covers |
+|---|---|
+| `BitgetAdapterTest` | success parse; HTTP-400-with-code-40034; HTTP-200-with-non-success-code (defensive); `supports()` false for `BTC/USD`; unsupported symbol short-circuits without a request |
+| `KuCoinAdapterTest` | success parse; **HTTP-200-with-null-data resolves cleanly, doesn't NPE**; `supports()` false for `BTC/USD` |
+| `KrakenAdapterTest` | rewritten against the new nested config shape; adds `supports()` and an error-array-inside-200 case |
+| `SpreadCalculationServiceTest.testCrossQuoteAssetRoutesNeverMix` | given mixed USD/USDT tickers for the same base asset, no route pairs a USD leg with a USDT leg, and `bestPerSymbol` never crosses either |
+| `ExchangeAvailabilityStoreTest` | per-(exchange, symbol) freshness is independent — the exact bug `liveByQuote` exists to prevent |
+
+Result: 31/32 tests pass. The one failure (`SpreadLogRepositoryIntegrationTest`) requires a local
+Docker daemon for Testcontainers, unavailable in the environment this was verified in — unrelated
+to this change, pre-existing.
+
+One bug caught by actually running the suite (not present before this pass): the prior
+`SpreadCalculationServiceTest` screenshot test asserted `-0.3675%` for prices that, when run
+through the real formula, produce `-0.3657%`. The `-0.3675%` figure came from a live screenshot at
+a different instant than the fixed prices chosen for the test; fixed by asserting the value the
+formula actually produces for the exact fixture inputs, with a comment explaining why the two
+numbers differ.
+
+**Frontend** — `ng build --configuration development`: zero errors. Initial run surfaced two
+`NG8107` warnings (unnecessary `?.` now that `config()` is non-nullable via a `DEFAULT_CONFIG`
+fallback); fixed by switching `config()?.fees` to `config().fees` in the two template spots. Final
+build: zero errors, zero warnings.
+
+### Ripple effects noted but not built this pass
+
+- **Payload size**: routes per symbol are n×(n−1). USD stays at 6 routes/symbol (3 venues); USDT
+  reaches 20 routes/symbol (5 venues). Across 4 symbols total that's roughly 52 matrix rows per
+  snapshot vs. 12 before Bitget/KuCoin — proportionally larger WebSocket payloads every 3s. Not a
+  problem at this scale; worth knowing before adding a third quote asset.
+- **Layout**: the matrix component's group-by-symbol rendering (from the earlier Sprint 2 pass)
+  already handles the row-count growth structurally; a wider sidebar or full-width matrix placement
+  may read better with 5 venues visible under USDT than the original 3-venue layout, but this
+  wasn't changed in this pass.
+
 ### Docs: "Fees and spread math" section
 
 Add to README.md and ARCHITECTURE.md:

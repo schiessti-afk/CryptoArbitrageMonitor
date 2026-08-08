@@ -36,13 +36,18 @@ public class KrakenAdapter implements ExchangeAdapter {
     }
 
     @Override
+    public boolean supports(String internalSymbol) {
+        return market(internalSymbol) != null;
+    }
+
+    @Override
     public Mono<PriceTicker> getTicker(String internalSymbol) {
-        // Map internal symbol to Kraken native symbol
-        String nativeSymbol = mapToNativeSymbol(internalSymbol);
-        if (nativeSymbol == null) {
-            log.warn("Kraken: unknown internal symbol {}", internalSymbol);
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            // Not offered by this venue — not a failure, nothing to poll or log.
             return Mono.empty();
         }
+        String nativeSymbol = market.getNativeSymbol();
 
         return webClient.get()
                 .uri("/0/public/Ticker?pair={pair}", nativeSymbol)
@@ -53,21 +58,19 @@ public class KrakenAdapter implements ExchangeAdapter {
                 })
                 .bodyToMono(String.class)
                 .map(this::parseJson)
-                .map(json -> parseTicker(json, internalSymbol, nativeSymbol))
+                .map(json -> parseTicker(json, internalSymbol, market))
                 .onErrorResume(e -> {
                     log.warn("Kraken: error fetching {}: {}", internalSymbol, e.getMessage());
                     return Mono.empty();
                 });
     }
 
-    private String mapToNativeSymbol(String internalSymbol) {
+    private ExchangeProperties.MarketConfig market(String internalSymbol) {
         ExchangeProperties.ExchangeConfig config = exchangeProperties.getAdapters().get("kraken");
         if (config == null) {
             return null;
         }
-        // Convert BTC/USD → BTC_USD for config lookup
-        String configKey = internalSymbol.replace("/", "_");
-        return config.getSymbolMap().get(configKey);
+        return config.getMarket(internalSymbol);
     }
 
     private JsonNode parseJson(String body) {
@@ -78,7 +81,7 @@ public class KrakenAdapter implements ExchangeAdapter {
         }
     }
 
-    private PriceTicker parseTicker(JsonNode json, String internalSymbol, String nativeSymbol) {
+    private PriceTicker parseTicker(JsonNode json, String internalSymbol, ExchangeProperties.MarketConfig market) {
         // Kraken returns { "error": [...], "result": {...} }
         if (json == null || json.isMissingNode()) {
             throw new IllegalArgumentException("Kraken response is missing or null");
@@ -95,7 +98,10 @@ public class KrakenAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Kraken: missing or empty result");
         }
 
-        // Response key is typically the native symbol (e.g., XXBTZUSD)
+        String nativeSymbol = market.getNativeSymbol();
+
+        // Response key is typically the native symbol (e.g., XXBTZUSD, or XBTUSDT for the USDT
+        // market — Kraken does not apply its X../Z.. wrapping to USDT pairs).
         JsonNode ticker = result.get(nativeSymbol);
         if (ticker == null || ticker.isMissingNode()) {
             throw new IllegalArgumentException("Kraken: ticker not found for " + nativeSymbol);
@@ -120,7 +126,7 @@ public class KrakenAdapter implements ExchangeAdapter {
                 Exchange.KRAKEN,
                 internalSymbol,
                 nativeSymbol,
-                "USD",
+                market.getQuoteAsset(),
                 bid,
                 ask,
                 Instant.now()

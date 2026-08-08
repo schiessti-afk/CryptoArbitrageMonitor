@@ -1,7 +1,11 @@
 export interface SpreadOpportunity {
   symbol: string;
   buyExchange: string;
+  buyNativeSymbol?: string;
+  buyQuoteAsset?: string;
   sellExchange: string;
+  sellNativeSymbol?: string;
+  sellQuoteAsset?: string;
   buyPrice: number;
   sellPrice: number;
   rawSpreadPercent: number;
@@ -9,11 +13,16 @@ export interface SpreadOpportunity {
   calculatedAt?: string;
 }
 
+export type ExchangeFreshness = 'FRESH' | 'STALE' | 'NEVER';
+
 export interface ExchangeStatus {
   exchange: string;
   available: boolean;
   lastUpdate?: string;
-  freshness: 'FRESH' | 'STALE' | 'NEVER';
+  freshness: ExchangeFreshness;
+  /** Quote assets this venue lists at all (e.g. ["USD","USDT"]). Used to hide a venue's chip
+   *  when the selected quote asset isn't one it offers, rather than showing it as broken. */
+  offeredQuoteAssets: string[];
 }
 
 export interface SpreadSnapshot {
@@ -23,6 +32,11 @@ export interface SpreadSnapshot {
   exchanges: ExchangeStatus[];
   freshExchangeCount: number;
   live: boolean;
+  /** Per-quote-asset LIVE flag (>=2 fresh venues for that quote's symbols). A venue outage
+   *  confined to one quote universe must not make the other read as LIVE incorrectly, or vice
+   *  versa — this is what the global `live` field above cannot express. */
+  liveByQuote: Record<string, boolean>;
+  freshCountByQuote: Record<string, number>;
 }
 
 export interface Pair {
@@ -38,4 +52,12 @@ export interface Fee {
   exchange: string;
   takerFee: number;
   updatedAt: string;
+}
+
+export interface AppConfig {
+  defaultNotional: number;
+  freshnessWindowMs: number;
+  neutralEpsilonPercent: number;
+  fees: Fee[];
+  quoteAssets: string[];
 }

@@ -231,7 +231,130 @@ Add `GET /api/config` endpoint. Render a collapsible **Fees & spread math** pane
 net% = ((sell × (1 − sellFee)) / (buy × (1 + buyFee)) − 1) × 100
 ```
 
-Add an optional `Fees %` column to the matrix showing the fee impact per route. Write a `SpreadCalculationServiceTest` case using the exact screenshot numbers (buy 64,967.30 Kraken / sell 64,963.00 Binance → net −0.3675%) to enforce reproducibility. Add test cases for `spreadState()` boundaries and matrix sort order. Update README and [ARCHITECTURE.md](./ARCHITECTURE.md) with a "Fees and spread math" section, fee table, formula, and one worked example.
+Add an optional `Fees %` column to the matrix showing the fee impact per route. Write a `SpreadCalculationServiceTest` case using prices in the same range as the reported screenshot (buy 64,967.30 Kraken / sell 64,963.00 Binance, fees 0.26%/0.1%) and assert the value the formula actually produces for those exact inputs (**−0.3657%**, independently computed) — not the screenshot's −0.3675%, which was read off a live UI at a different instant and isn't reproducible bit-for-bit from a fixed fixture. The point of the test is that the *formula* is verifiable from whatever numbers the UI displays, not that one frozen fixture matches one screenshot. Add test cases for `spreadState()` boundaries and matrix sort order. Update README and [ARCHITECTURE.md](./ARCHITECTURE.md) with a "Fees and spread math" section, fee table, formula, and one worked example.
+
+---
+
+## Sprint 2 Refinements — Bitget, KuCoin, and the USD/USDT toggle
+
+Bitget and KuCoin only list BTC/ETH against **USDT** — verified live: Bitget's `BTCUSD` symbol
+returns HTTP 400 (`"Parameter BTCUSD does not exist"`); KuCoin's `BTC-USD` returns HTTP 200 with a
+null `data` payload. Rather than mixing USD and USDT prices in one comparison (which would bake an
+unstated FX assumption into every net spread), USDT is modeled as its own quote-asset universe with
+its own venue set — `BTC/USDT` and `ETH/USDT` as new `tracked_pair` rows, never blended with the
+USD pairs. A frontend toggle switches between the two universes; each shows only the venues that
+actually offer it.
+
+Verified availability matrix (probed against live public APIs):
+
+| Venue | BTC/USD | ETH/USD | BTC/USDT | ETH/USDT |
+|---|---|---|---|---|
+| Binance | ✓ `BTCUSD` | ✓ `ETHUSD` | ✓ `BTCUSDT` | ✓ `ETHUSDT` |
+| Kraken | ✓ `XXBTZUSD` | ✓ `XETHZUSD` | ✓ `XBTUSDT`* | ✓ `ETHUSDT` |
+| Coinbase | ✓ `BTC-USD` | ✓ `ETH-USD` | ✓ `BTC-USDT` | ✓ `ETH-USDT` |
+| Bitget | — | — | ✓ `BTCUSDT` | ✓ `ETHUSDT` |
+| KuCoin | — | — | ✓ `BTC-USDT` | ✓ `ETH-USDT` |
+
+\* Kraken's USDT symbols don't follow its USD `X../Z..` wrapping convention, and the response is
+keyed by the native symbol requested (`XBTUSDT`, not `BTCUSDT`).
+
+### 1. Config: nested per-venue markets, not a flat symbol map
+
+`ExchangeProperties` moves from three hardcoded fields (`binance`/`kraken`/`coinbase`, each
+duplicated across field/getter/`getAdapters()`) to one Spring-bound `Map<String, ExchangeConfig>
+adapters`, keyed by lowercase venue name. Each `ExchangeConfig` carries a `Map<String,
+MarketConfig> markets`, keyed by internal symbol (`BTC_USD`, `BTC_USDT`, …), each holding
+`nativeSymbol` and `quoteAsset`. A venue's absence of an entry for a market **is** the fact that it
+doesn't offer that market — this single source of truth drives `ExchangeAdapter#supports`,
+`MarketConfigValidator`, and the frontend's venue-chip filtering, so adding or removing a market
+for a venue is a config-only change.
+
+`WebClientConfig` keeps five explicit `@Bean` methods (one per venue) rather than registering
+`WebClient` beans dynamically from the map — dynamic singleton registration from a `@PostConstruct`
+risks a bean-creation-order race against adapters injecting via `@Qualifier`, and five one-line
+methods reading from the map by key carry none of that risk.
+
+### 2. Not-offered vs failed: `ExchangeAdapter#supports`
+
+Before this could be built safely, the interface needed a way to distinguish "this venue doesn't
+list this market" from "this venue failed to respond." `ExchangeAdapter` gains:
+
+```java
+boolean supports(String internalSymbol);
+```
+
+backed by presence in the venue's `markets` config. `PollOrchestrationService` checks this before
+issuing any request — an unlisted market produces no HTTP call, no availability-store update, and
+no `WARN` log. Without this, polling Bitget for `BTC/USD` every 3 seconds would either warn forever
+or make Bitget render as permanently `NEVER` in the UI, indistinguishable from an actual outage.
+
+### 3. Freshness becomes per-(exchange, symbol)
+
+`ExchangeAvailabilityStore`'s key widens from `Exchange` to `(Exchange, symbol)` — a venue can be
+healthy on one market and failing on another. Per-exchange convenience methods
+(`isFreshAny`, `getLastReceivedAtAny`) aggregate across whatever symbols that exchange has actually
+reported for, used for the venue-level "is this thing alive at all" chip. Per-quote-asset LIVE
+computation uses the per-symbol methods directly: `SpreadPublisher` groups active `tracked_pair`
+rows by `quoteCurrency` (the authoritative source — not inferred from live ticker data) and
+publishes `liveByQuote` / `freshCountByQuote` maps alongside the existing global `live` field. This
+is the fix for the scenario the global count couldn't express: all three USD venues down while
+Bitget and KuCoin (USDT-only) are healthy would previously read as globally LIVE (`freshCount ≥
+2`) while the USD view a user is looking at is empty.
+
+### 4. Two new adapters, two real error-shape gotchas
+
+`BitgetAdapter` — `GET /api/v2/spot/market/tickers?symbol={native}`. Bid/ask at `data[0].bidPr` /
+`data[0].askPr` — `data` is an **array**, unlike every existing adapter. An unknown symbol returns
+HTTP 400 *and* envelope code `"40034"`; the code check is the authoritative one, since a future
+error path could plausibly return 200 with a non-success code.
+
+`KuCoinAdapter` — `GET /api/v1/market/orderbook/level1?symbol={native}`. Bid/ask at
+`data.bestBid` / `data.bestAsk`. **The gotcha:** an unknown symbol returns **HTTP 200** with
+`{"code":"200000","data":null}` — the standard `onStatus` non-2xx check cannot catch this at all.
+`parseTicker` must explicitly check for a null `data` node before touching `data.bestBid`, or a
+`NullNode` field access throws an unguarded NPE instead of resolving to a clean adapter failure
+(caught by a unit test — see Testing below).
+
+Both set `quoteAsset = "USDT"` on their `PriceTicker`s — the field added earlier in Sprint 2
+finally carries a value other than `"USD"`.
+
+### 5. `Exchange` enum, migration, poll-cycle flattening
+
+`Exchange` gains `BITGET`, `KUCOIN`. `V3__add_usdt_universe.sql` seeds the two new
+`tracked_pair` rows (`BTC/USDT`, `ETH/USDT`) and two `exchange_fee` rows (0.1% base-tier spot
+taker for each, flagged as configurable estimates like the V1 seed data — worth checking against
+current published schedules before treating as accurate long-term).
+
+`PollOrchestrationService.fetchTickersInParallel` — previously looped symbols sequentially,
+fanning out only across adapters (one blocking round-trip per symbol). Now flattened into a single
+`Flux` over the full symbol × adapter cross-product, filtered by `supports()` before any request is
+built. At 2 symbols × 3 venues this was optional; at 4 symbols × 5 venues (with per-symbol
+participation varying) it's the difference between one round-trip per cycle and up to four.
+
+### 6. Frontend: the toggle and what it filters
+
+`QuoteAssetService` holds one signal (`selected: 'USD' | 'USDT'`), persisted to `localStorage`, and
+is injected wherever quote-asset-aware filtering happens. `DashboardComponent` derives three
+computed signals from the same WebSocket snapshot — `opportunities`, `matrix`, and a data-driven
+`venueSummary` for the header tooltip — all filtered by `symbol.endsWith('/' + selectedQuote)`. The
+matrix and detail-card components are unchanged; they simply receive an already-filtered `[matrix]`
+/ `[opportunities]` input, so no duplicate filtering logic exists across components.
+
+`ConnectionStatusComponent` reads `liveByQuote[selected]` instead of the global `live` flag for its
+badge, and filters exchange chips to only those where `ex.offeredQuoteAssets.includes(selected)` —
+so Bitget and KuCoin simply don't render as chips under USD, rather than rendering as broken.
+
+The header's info tooltip is now built from the native symbols actually present in the current
+(filtered) matrix (`venueSummary()`), rather than a hardcoded string — under USDT it lists Bitget
+and KuCoin's native symbols instead of silently repeating the USD-era Binance/Kraken/Coinbase
+listing.
+
+### 7. What stayed exactly as designed in the initial refinements
+
+Card/matrix spread-state styling ([Section 2–3](#2-best-current-spreads-with-explicit-verdict)),
+matrix grouping and sort order (Section 4), notional quick-select (Section 5), and the client-side
+freshness ticker (Section 6) are all unchanged in mechanism — they simply now operate on the
+filtered, per-quote data instead of an unfiltered global snapshot.
 
 ---
 
@@ -248,6 +371,26 @@ Add an optional `Fees %` column to the matrix showing the fee impact per route. 
 - Freshness/LIVE derivation spec, including the transport-stale case
 - A `websocket.service` spec against a fake STOMP client — no real socket
 
+**Backend — Bitget/KuCoin/toggle refinements** (all green as of this writing; see
+[SPRINT2-IMPLEMENTATION.md](./SPRINT2-IMPLEMENTATION.md) for the actual `./gradlew test` run)
+- `BitgetAdapterTest` — success parse, HTTP-400-with-error-code, HTTP-200-with-error-code
+  (defensive: code check independent of status), `supports()` false for `BTC/USD`
+- `KuCoinAdapterTest` — success parse, and the case that matters most: HTTP 200 with
+  `data: null` resolves to an empty `Mono` rather than throwing an NPE
+- `KrakenAdapterTest` rewritten against the new nested `markets` config shape; adds a
+  `supports()` case and an error-array-inside-200 case that was previously untested
+- `SpreadCalculationServiceTest#testCrossQuoteAssetRoutesNeverMix` — the core invariant: given
+  mixed USD and USDT tickers for the same base asset, no route ever pairs a USD leg with a USDT
+  leg, and `bestPerSymbol` never crosses either
+- `ExchangeAvailabilityStoreTest` — asserts per-(exchange, symbol) freshness is independent
+  across quote-asset universes (the exact scenario `liveByQuote` exists to get right)
+
+**Frontend — Bitget/KuCoin/toggle refinements**
+- Build verified clean (`ng build`, zero errors, zero warnings after minor template cleanup)
+- Manual verification path: toggle to USDT, confirm Bitget/KuCoin chips appear and Binance/
+  Kraken/Coinbase chips remain (all five list USDT); toggle to USD, confirm Bitget/KuCoin chips
+  disappear entirely rather than showing as STALE/NEVER
+
 ---
 
 ## Exit checklist
@@ -263,6 +406,11 @@ Add an optional `Fees %` column to the matrix showing the fee impact per route. 
 - [ ] Notional change updates estimated profit without a round-trip
 - [ ] Copy uses "indicative cross-venue arbitrage opportunity"
 - [ ] Last-update timestamp and buy/sell direction visible
+- [x] Bitget and KuCoin poll BTC/USDT and ETH/USDT successfully
+- [x] Bitget/KuCoin never polled for BTC/USD or ETH/USD, never logged as failing for it
+- [x] USD ⇄ USDT toggle filters cards, matrix, and chips consistently from one snapshot
+- [x] `liveByQuote` reflects per-quote-asset health independently (verified by unit test)
+- [x] No route in any published matrix ever mixes a USD leg with a USDT leg (verified by unit test)
 
 ---
 
