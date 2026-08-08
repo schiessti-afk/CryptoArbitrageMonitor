@@ -1,4 +1,6 @@
 [
   {"symbol":"BTCUSDT","bidPrice":"65015.27000000","bidQty":"5.66862000","askPrice":"65015.28000000","askQty":"3.84780000"},
-  {"symbol":"SOLUSDT","bidPrice":"75.56000000","bidQty":"504.46800000","askPrice":"75.57000000","askQty":"291.33400000"}
+  {"symbol":"SOLUSDT","bidPrice":"75.56000000","bidQty":"504.46800000","askPrice":"75.57000000","askQty":"291.33400000"},
+  {"symbol":"ADAUSDT","bidPrice":"0.45000000","bidQty":"1000.00000000","askPrice":"0.45100000","askQty":"1000.00000000"},
+  {"symbol":"SHIBUSDT","bidPrice":"0.00002000","bidQty":"1000000.00000000","askPrice":"0.00002100","askQty":"1000000.00000000"}
 ]

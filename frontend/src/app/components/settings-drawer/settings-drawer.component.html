@@ -38,21 +38,29 @@
 
         <section>
           <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Markets</h3>
-          @for (quote of config().quoteAssets; track quote) {
-            <div class="mb-4">
-              <p class="text-xs uppercase tracking-wide text-accent mb-2 font-semibold">{{ quote }}</p>
-              <div class="space-y-1">
-                @for (symbol of symbolsByQuote(quote); track symbol) {
-                  <label class="flex items-center justify-between gap-3 py-1 px-2 rounded-md hover:bg-[var(--row-hover)]">
-                    <span class="text-sm">{{ symbol }}</span>
-                    <input type="checkbox"
-                           [checked]="isSymbolEnabled(symbol)"
-                           (change)="settings.toggleSymbol(symbol, $any($event.target).checked)"
-                           class="w-5 h-5 accent-[var(--accent)]" />
-                  </label>
-                }
+          @for (quote of quoteAssetsOrdered(); track quote) {
+            @if (quote === 'USDT') {
+              <div class="mb-4">
+                <p class="text-xs uppercase tracking-wide text-accent mb-2 font-semibold">USDT</p>
+                <p class="text-xs text-muted mb-3">Only selected markets are fetched from exchanges.</p>
+                <app-usdt-market-picker [symbols]="usdtSymbols()" mode="settings" />
               </div>
-            </div>
+            } @else {
+              <div class="mb-4">
+                <p class="text-xs uppercase tracking-wide text-accent mb-2 font-semibold">{{ quote }}</p>
+                <div class="space-y-1">
+                  @for (symbol of symbolsByQuote(quote); track symbol) {
+                    <label class="flex items-center justify-between gap-3 py-1 px-2 rounded-md hover:bg-[var(--row-hover)]">
+                      <span class="text-sm">{{ symbol }}</span>
+                      <input type="checkbox"
+                             [checked]="isSymbolEnabled(symbol)"
+                             (change)="settings.toggleSymbol(symbol, $any($event.target).checked)"
+                             class="w-5 h-5 accent-[var(--accent)]" />
+                    </label>
+                  }
+                </div>
+              </div>
+            }
           }
         </section>
 

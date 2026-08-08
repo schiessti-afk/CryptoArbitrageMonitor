@@ -17,22 +17,33 @@ describe('mergeSettings', () => {
     expect(mergeSettings({ version: 2 })).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('drops unknown keys', () => {
+  it('drops unknown keys and migrates v1 to v2', () => {
     const merged = mergeSettings({ version: 1, theme: 'light', unknown: true });
     expect(merged.theme).toBe('light');
+    expect(merged.version).toBe(2);
     expect((merged as any).unknown).toBeUndefined();
   });
 
-  it('fills missing keys from defaults', () => {
+  it('fills missing keys from defaults on v1 migrate', () => {
     const merged = mergeSettings({ version: 1, theme: 'light' });
     expect(merged.theme).toBe('light');
+    expect(merged.version).toBe(2);
     expect(merged.disabledExchanges).toEqual([]);
     expect(merged.minNetSpreadPercent).toBe(0);
+    expect(merged.disabledSymbols.length).toBeGreaterThan(0);
   });
 
-  it('uses dark when theme omitted from stored object', () => {
+  it('migrates v1 show-all to major-5 USDT default', () => {
     const merged = mergeSettings({ version: 1 });
+    expect(merged.version).toBe(2);
     expect(merged.theme).toBe('dark');
+    expect(merged.disabledSymbols).toContain('BNB/USDT');
+    expect(merged.disabledSymbols).not.toContain('BTC/USDT');
+  });
+
+  it('preserves custom disabled list on v1 migrate', () => {
+    const merged = mergeSettings({ version: 1, disabledSymbols: ['ETH/USDT'] });
+    expect(merged.disabledSymbols).toEqual(['ETH/USDT']);
   });
 });
 

@@ -4,56 +4,84 @@
       <div class="skeleton h-24"></div>
     }
   </div>
-} @else if (filteredEmpty()) {
-  <div class="empty-state">
-    <p>No matrix rows match the current filters.</p>
-    <button type="button" class="btn-secondary mt-2" (click)="clearFilters.emit()">Clear filters</button>
-  </div>
 } @else if (matrix().length === 0) {
   <div class="empty-state">
     <p>No matrix data yet for {{ quoteAsset() }} markets.</p>
   </div>
 } @else {
-  <div class="overflow-x-auto space-y-6">
+  <div class="flex items-center justify-end gap-2 mb-3">
+    <button type="button" class="chip chip-muted text-xs" (click)="expandAll()">Expand all</button>
+    <button type="button" class="chip chip-muted text-xs" (click)="collapseAll()" [disabled]="allCollapsed()">
+      Collapse all
+    </button>
+  </div>
+
+  <div class="space-y-2">
     @for (group of groupedMatrix(); track group.symbol) {
-      <div>
-        <h3 class="font-semibold mb-2 tracking-tight">{{ group.symbol }}</h3>
+      <div class="rounded-lg border border-theme overflow-hidden">
+        <button type="button"
+                class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-muted-row hover:bg-[var(--row-hover)] transition-colors"
+                (click)="toggleSymbol(group.symbol)"
+                [attr.aria-expanded]="isExpanded(group.symbol)">
+          <span class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="h-4 w-4 shrink-0 text-muted transition-transform"
+                 [class.rotate-90]="isExpanded(group.symbol)"
+                 aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L10.94 10 7.23 6.29a.75.75 0 111.04-1.08l4.25 3.95a.75.75 0 010 1.08l-4.25 3.95a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/>
+            </svg>
+            <span class="font-semibold tracking-tight">{{ group.symbol }}</span>
+            <span class="text-xs text-muted tabular-nums">{{ group.rows.length }} routes</span>
+          </span>
+          @if (bestNetPercent(group.rows); as best) {
+            <span class="text-sm font-bold tabular-nums shrink-0"
+                  [class.text-positive]="best > 0.001"
+                  [class.text-negative]="best < -0.001"
+                  [class.text-muted]="best >= -0.001 && best <= 0.001">
+              best {{ formatNet(best) }}
+            </span>
+          }
+        </button>
+
         @if (coverageMessage(group.symbol); as msg) {
-          <p class="text-xs mb-2" style="color: var(--warning)">{{ msg }}</p>
+          <p class="text-xs px-3 pb-2" style="color: var(--warning)">{{ msg }}</p>
         }
-        <div class="rounded-lg border border-theme overflow-hidden">
-          <table class="w-full border-collapse min-w-[640px]">
-            <thead>
-              <tr class="bg-muted-row text-muted text-xs uppercase tracking-wider">
-                <th class="border-b border-theme text-left sticky left-0 bg-muted-row z-10 font-semibold" [ngClass]="cellPadding()">Buy</th>
-                <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Sell</th>
-                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Buy {{ quoteAsset() }}</th>
-                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Sell {{ quoteAsset() }}</th>
-                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Raw %</th>
-                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Fees %</th>
-                <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Net %</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
-                <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme'">
-                  <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
-                  <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
-                  <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
-                  <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
-                  <td class="text-right tabular-nums" [ngClass]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
-                  <td class="text-right text-muted tabular-nums" [ngClass]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
-                  <td class="text-right font-bold tabular-nums"
-                      [ngClass]="cellPadding()"
-                      [class.text-positive]="row.netSpreadPercent > 0.001"
-                      [class.text-negative]="row.netSpreadPercent < -0.001">
-                    {{ formatNet(row.netSpreadPercent) }}
-                  </td>
+
+        @if (isExpanded(group.symbol)) {
+          <div class="overflow-x-auto border-t border-theme">
+            <table class="w-full border-collapse min-w-[640px]">
+              <thead>
+                <tr class="bg-muted-row text-muted text-xs uppercase tracking-wider">
+                  <th class="border-b border-theme text-left sticky left-0 bg-muted-row z-10 font-semibold" [ngClass]="cellPadding()">Buy</th>
+                  <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Sell</th>
+                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Buy {{ quoteAsset() }}</th>
+                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Sell {{ quoteAsset() }}</th>
+                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Raw %</th>
+                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Fees %</th>
+                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Net %</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
+                  <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme'">
+                    <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
+                    <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
+                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
+                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
+                    <td class="text-right tabular-nums" [ngClass]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
+                    <td class="text-right text-muted tabular-nums" [ngClass]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
+                    <td class="text-right font-bold tabular-nums"
+                        [ngClass]="cellPadding()"
+                        [class.text-positive]="row.netSpreadPercent > 0.001"
+                        [class.text-negative]="row.netSpreadPercent < -0.001">
+                      {{ formatNet(row.netSpreadPercent) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
     }
   </div>

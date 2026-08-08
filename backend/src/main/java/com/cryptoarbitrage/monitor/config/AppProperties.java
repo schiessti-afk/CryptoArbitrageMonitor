@@ -15,6 +15,10 @@ public class AppProperties {
     public static class Polling {
         private long intervalMs = 3000;
         private long freshnessWindowMs = 10000;
+        /** USDT markets polled before the client sends preferences (matches frontend major-5 default). */
+        private java.util.List<String> defaultUsdtMajors = java.util.List.of(
+                "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT"
+        );
 
         public long getIntervalMs() {
             return intervalMs;
@@ -30,6 +34,16 @@ public class AppProperties {
 
         public void setFreshnessWindowMs(long freshnessWindowMs) {
             this.freshnessWindowMs = freshnessWindowMs;
+        }
+
+        public java.util.List<String> getDefaultUsdtMajors() {
+            return defaultUsdtMajors;
+        }
+
+        public void setDefaultUsdtMajors(java.util.List<String> defaultUsdtMajors) {
+            this.defaultUsdtMajors = defaultUsdtMajors == null
+                    ? java.util.List.of()
+                    : defaultUsdtMajors;
         }
     }
 

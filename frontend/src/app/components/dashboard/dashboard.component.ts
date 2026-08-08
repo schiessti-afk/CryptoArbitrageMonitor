@@ -12,10 +12,12 @@ import { HttpClient } from '@angular/common/http';
 import { WebsocketService } from '../../services/websocket.service';
 import { QuoteAssetService } from '../../services/quote-asset.service';
 import { SettingsService } from '../../services/settings.service';
+import { PollPreferenceService } from '../../services/poll-preference.service';
 import { SpreadDetailComponent } from '../spread-detail/spread-detail.component';
 import { SpreadTableComponent } from '../spread-table/spread-table.component';
 import { ConnectionStatusComponent } from '../connection-status/connection-status.component';
 import { SettingsDrawerComponent } from '../settings-drawer/settings-drawer.component';
+import { UsdtMarketPickerComponent } from '../usdt-market-picker/usdt-market-picker.component';
 import { AppConfig } from '../../models/spread.model';
 import {
   OpportunityQuickFilter,
@@ -46,6 +48,7 @@ const DEFAULT_CONFIG: AppConfig = {
     SpreadTableComponent,
     ConnectionStatusComponent,
     SettingsDrawerComponent,
+    UsdtMarketPickerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.component.html',
@@ -136,6 +139,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return coverage.map(c => c.symbol).sort();
   });
 
+  usdtSymbols = computed(() => {
+    const fromPairs = this.pollPreferences.trackedSymbols();
+    const source = fromPairs.length ? fromPairs : this.trackedSymbols();
+    return source.filter(s => s.endsWith('/USDT')).sort();
+  });
+
   coverageForQuote = computed(() =>
     getCoverageForQuote(this.websocket.snapshot()?.coverage, this.quoteAsset.selected())
   );
@@ -158,12 +167,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   density = computed(() => this.settings.settings().density);
 
+  quoteAssetsOrdered = computed(() => {
+    const available = new Set(this.config().quoteAssets);
+    return ['USDT', 'USD'].filter(q => available.has(q));
+  });
+
   quickSelectAmounts = [100, 1000, 5000, 10000, 50000];
 
   constructor(
     public websocket: WebsocketService,
     public quoteAsset: QuoteAssetService,
     public settings: SettingsService,
+    public pollPreferences: PollPreferenceService,
     private http: HttpClient
   ) {}
 

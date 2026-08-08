@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity, SymbolCoverage } from '../../models/spread.model';
 import { DashboardSettings } from '../../services/settings.service';
@@ -19,9 +19,8 @@ export class SpreadTableComponent {
   quoteAsset = input('USD');
   coverage = input<SymbolCoverage[]>([]);
   loading = input(false);
-  filteredEmpty = input(false);
   settings = input<DashboardSettings>({
-    version: 1,
+    version: 2,
     disabledExchanges: [],
     disabledSymbols: [],
     minNetSpreadPercent: 0,
@@ -33,7 +32,8 @@ export class SpreadTableComponent {
   });
   density = input<'comfortable' | 'compact'>('comfortable');
 
-  clearFilters = output<void>();
+  /** Symbol groups expanded in the matrix accordion — collapsed by default. */
+  private expandedSymbols = signal<Set<string>>(new Set());
 
   groupedMatrix = computed(() => {
     const groups = new Map<string, SpreadOpportunity[]>();
@@ -61,7 +61,38 @@ export class SpreadTableComponent {
       .sort((a, b) => a.symbol.localeCompare(b.symbol));
   });
 
+  allCollapsed = computed(() => this.expandedSymbols().size === 0);
+
   cellPadding = computed(() => (this.density() === 'compact' ? 'p-2 text-xs' : 'p-3 text-sm'));
+
+  isExpanded(symbol: string): boolean {
+    return this.expandedSymbols().has(symbol);
+  }
+
+  toggleSymbol(symbol: string): void {
+    this.expandedSymbols.update(current => {
+      const next = new Set(current);
+      if (next.has(symbol)) {
+        next.delete(symbol);
+      } else {
+        next.add(symbol);
+      }
+      return next;
+    });
+  }
+
+  expandAll(): void {
+    this.expandedSymbols.set(new Set(this.groupedMatrix().map(g => g.symbol)));
+  }
+
+  collapseAll(): void {
+    this.expandedSymbols.set(new Set());
+  }
+
+  bestNetPercent(rows: SpreadOpportunity[]): number | null {
+    if (rows.length === 0) return null;
+    return rows[0].netSpreadPercent;
+  }
 
   getRowClass(netPercent: number): string {
     const state = getSpreadState(netPercent);

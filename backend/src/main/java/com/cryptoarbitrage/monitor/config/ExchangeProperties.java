@@ -71,6 +71,10 @@ public class ExchangeProperties {
         private long connectTimeoutMs = 5000;
         private long responseTimeoutMs = 10000;
         private Map<String, MarketConfig> markets = new HashMap<>();
+        /** Coinbase only: always-polled internal symbols (e.g. {@code BTC/USD}). */
+        private java.util.List<String> coreSymbols = java.util.List.of();
+        /** Coinbase only: also poll optional markets when enabled count is at or below this value. */
+        private int expandWhenEnabledAtMost = 8;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -102,6 +106,22 @@ public class ExchangeProperties {
 
         public void setMarkets(Map<String, MarketConfig> markets) {
             this.markets = markets;
+        }
+
+        public java.util.List<String> getCoreSymbols() {
+            return coreSymbols;
+        }
+
+        public void setCoreSymbols(java.util.List<String> coreSymbols) {
+            this.coreSymbols = coreSymbols == null ? java.util.List.of() : coreSymbols;
+        }
+
+        public int getExpandWhenEnabledAtMost() {
+            return expandWhenEnabledAtMost;
+        }
+
+        public void setExpandWhenEnabledAtMost(int expandWhenEnabledAtMost) {
+            this.expandWhenEnabledAtMost = expandWhenEnabledAtMost;
         }
 
         /**

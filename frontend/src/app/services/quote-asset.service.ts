@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 const STORAGE_KEY = 'crypto-arbitrage-monitor:quoteAsset';
-const DEFAULT_QUOTE_ASSET = 'USD';
+const DEFAULT_QUOTE_ASSET = 'USDT';
 
 /**
  * Holds the selected quote-asset universe (USD or USDT) for the whole dashboard.

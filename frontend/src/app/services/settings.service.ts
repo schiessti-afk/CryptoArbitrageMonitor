@@ -1,7 +1,13 @@
 import { Injectable, effect, signal } from '@angular/core';
+import {
+  DEFAULT_DISABLED_USDT_EXTENDED,
+  isUsdtExtended,
+  isUsdtMajor,
+  USDT_MAJOR_SYMBOLS,
+} from '../utils/market-groups';
 
 export interface DashboardSettings {
-  version: 1;
+  version: 2;
   disabledExchanges: string[];
   disabledSymbols: string[];
   minNetSpreadPercent: number;
@@ -13,9 +19,9 @@ export interface DashboardSettings {
 }
 
 export const DEFAULT_SETTINGS: DashboardSettings = {
-  version: 1,
+  version: 2,
   disabledExchanges: [],
-  disabledSymbols: [],
+  disabledSymbols: [...DEFAULT_DISABLED_USDT_EXTENDED],
   minNetSpreadPercent: 0,
   hideBelowThreshold: false,
   theme: 'dark',
@@ -38,7 +44,14 @@ export function mergeSettings(raw: unknown): DashboardSettings {
     }
     (merged as Record<string, unknown>)[key] = value;
   }
-  if (merged.version !== 1) {
+  const version = (raw as Record<string, unknown>)['version'];
+  if (version === 1) {
+    // v1 default was "show everything" — migrate to major-5 USDT default.
+    if (merged.disabledSymbols.length === 0) {
+      merged.disabledSymbols = [...DEFAULT_DISABLED_USDT_EXTENDED];
+    }
+    merged.version = 2;
+  } else if (merged.version !== 2) {
     return { ...DEFAULT_SETTINGS };
   }
   return merged;
@@ -131,6 +144,28 @@ export class SettingsService {
 
   showAllSymbols() {
     this.update({ disabledSymbols: [] });
+  }
+
+  /** Enable only the five major USDT markets; hide extended USDT; leave USD unchanged. */
+  showUsdtMajorOnly(allSymbols: string[]) {
+    const disabled = new Set(this.settings().disabledSymbols.filter(s => !s.endsWith('/USDT')));
+    for (const symbol of allSymbols) {
+      if (isUsdtExtended(symbol)) {
+        disabled.add(symbol);
+      } else if (isUsdtMajor(symbol)) {
+        disabled.delete(symbol);
+      }
+    }
+    for (const major of USDT_MAJOR_SYMBOLS) {
+      disabled.delete(major);
+    }
+    this.update({ disabledSymbols: Array.from(disabled).sort() });
+  }
+
+  /** Enable every tracked USDT market. */
+  showAllUsdt(allSymbols: string[]) {
+    const disabled = this.settings().disabledSymbols.filter(s => !s.endsWith('/USDT'));
+    this.update({ disabledSymbols: disabled });
   }
 
   clearFilters() {

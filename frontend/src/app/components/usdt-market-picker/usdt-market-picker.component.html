@@ -1,0 +1,91 @@
+<div [class.space-y-3]="mode() === 'settings'">
+  @if (mode() === 'settings') {
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="chip chip-muted text-xs" (click)="showMajorOnly()">
+        Major 5 only
+      </button>
+      <button type="button" class="chip chip-muted text-xs" (click)="showAllUsdt()">
+        All USDT
+      </button>
+    </div>
+  }
+
+  <div>
+    @if (mode() === 'settings') {
+      <p class="text-xs uppercase tracking-wide text-accent mb-2 font-semibold">Core markets</p>
+    }
+    <div class="flex flex-wrap gap-2 items-center">
+      @if (mode() === 'bar') {
+        <span class="text-xs text-muted uppercase tracking-wide shrink-0">Markets</span>
+      }
+      @for (symbol of majors(); track symbol) {
+        <button type="button"
+                class="chip"
+                [class.chip-active]="isEnabled(symbol)"
+                [class.chip-muted]="!isEnabled(symbol)"
+                [attr.aria-pressed]="isEnabled(symbol)"
+                (click)="toggle(symbol)">
+          {{ label(symbol) }}
+        </button>
+      }
+
+      @for (symbol of enabledExtended(); track symbol) {
+        <button type="button"
+                class="chip chip-active"
+                [attr.aria-pressed]="true"
+                (click)="toggle(symbol)">
+          {{ label(symbol) }}
+          <span class="sr-only">, remove from view</span>
+        </button>
+      }
+
+      @if (extended().length > 0) {
+        <button type="button"
+                class="chip chip-muted"
+                [class.chip-active]="expanded()"
+                (click)="toggleExpanded()"
+                [attr.aria-expanded]="expanded()">
+          @if (mode() === 'bar') {
+            @if (hiddenExtendedCount() > 0) {
+              + {{ hiddenExtendedCount() }} more
+            } @else {
+              Manage markets
+            }
+          } @else {
+            {{ expanded() ? 'Hide' : 'Show' }} more markets
+            @if (!expanded() && hiddenExtendedCount() > 0) {
+              ({{ hiddenExtendedCount() }} hidden)
+            }
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (expanded() && extended().length > 0) {
+    <div [class.rounded-lg]="mode() === 'bar'"
+         [class.border]="mode() === 'bar'"
+         [class.border-theme]="mode() === 'bar'"
+         [class.panel-elevated]="mode() === 'bar'"
+         [class.p-3]="mode() === 'bar'"
+         [class.mt-1]="mode() === 'bar'">
+      @if (mode() === 'settings') {
+        <p class="text-xs uppercase tracking-wide text-muted mb-2 font-semibold">More USDT markets</p>
+      } @else {
+        <p class="text-xs text-muted mb-2">Tap to add or remove from your view</p>
+      }
+      <div class="flex flex-wrap gap-2">
+        @for (symbol of extended(); track symbol) {
+          <button type="button"
+                  class="chip"
+                  [class.chip-active]="isEnabled(symbol)"
+                  [class.chip-muted]="!isEnabled(symbol)"
+                  [attr.aria-pressed]="isEnabled(symbol)"
+                  (click)="toggle(symbol)">
+            {{ label(symbol) }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

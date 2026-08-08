@@ -7,14 +7,18 @@ This application does **not** execute trades. Displayed values are **indicative 
 ## Features
 
 - Public market data from **five exchanges** (no private API keys)
-- **11 tracked symbols** — BTC, ETH, SOL, XRP, DOGE, and BNB across **USD** and **USDT** quote universes (BNB is USDT-only)
-- Batched ticker fetches (~9 HTTP calls per 3s cycle) to keep request rate low as symbol count grows
+- **31 tracked symbols** in the database — **5 USD** and **26 USDT** markets (BNB is USDT-only on three venues)
+- **Selective polling** — the backend fetches only markets you enable in the dashboard; adding or removing a coin updates the next poll cycle via `PUT /api/preferences/poll`
+- Batched ticker fetches for Binance, Kraken, Bitget, and KuCoin (one HTTP call per venue per cycle); Coinbase uses per-product calls for selected markets only
 - Normalized bid/ask tickers via exchange adapters with live-probed native symbol mapping
 - Full buy/sell matrix per polling cycle, with the **best opportunity per symbol** highlighted and persisted
 - Raw and net spread (one configurable taker fee per exchange)
-- **Settings drawer** — hide venues/markets, min net-spread threshold (dim or hide), theme, density, optional freshness/notional overrides (all persisted in `localStorage`)
-- Quote-asset toggle (**USD** / **USDT**) with consistent filtering across cards, matrix, chips, and LIVE badge
-- Ranked **Top Opportunities** panel, KPI tiles, full-width sortable matrix, thin-market coverage messages
+- **Default view: USDT** — major five (BTC, ETH, SOL, XRP, DOGE) shown by default; chip picker to add or remove extended USDT markets without cluttering the UI
+- **USD markets** — all five pairs always available; unchanged checkbox list in settings
+- **Settings drawer** — hide venues/markets, min net-spread threshold (dim or hide), theme, density, optional freshness/notional overrides (persisted in `localStorage`)
+- Quote-asset toggle (**USDT** / **USD**) with consistent filtering across opportunities, matrix, status chips, and LIVE badge
+- Ranked **Top Opportunities** panel with quick filters (All / Positive net / Above threshold), KPI tiles, thin-market coverage messages
+- **Full Matrix** — accordion per market (collapsed by default); expand/collapse individual symbols or use Expand all / Collapse all
 - User-selectable hypothetical investment size (default **$1,000**)
 - Live updates over **WebSocket + STOMP + SockJS** (frontend does not poll)
 - Historical spread log with bounded REST queries
@@ -78,13 +82,13 @@ npm start                      # http://localhost:4200
 
 Default DB credentials match Compose / `.env.example`: database `arbitrage`, user/password `arbitrage`, host port `5437` (mapped to container `5432`).
 
-Flyway applies migrations through **V4** on startup (adds SOL, XRP, DOGE, BNB).
+Flyway applies migrations through **V5** on startup (adds 20 USDT expansion assets).
 
 ## Monitored markets
 
-Two **quote universes** — never mixed in a single comparison:
+The database tracks **31 pairs** across two **quote universes** — never mixed in a single comparison. The dashboard **polls only the markets you select**; the tables below describe what is configured, not what is fetched every cycle.
 
-### USD (7 symbols)
+### USD (5 symbols — all shown by default)
 
 | Symbol | Venues |
 |---|---|
@@ -93,14 +97,23 @@ Two **quote universes** — never mixed in a single comparison:
 
 Binance global spot lists SOL/USD but not XRP/USD or DOGE/USD (verified live).
 
-### USDT (4 symbols × 5 venues, except BNB)
+### USDT (26 symbols — major five shown by default)
 
-| Symbol | Venues |
+**Default enabled:** `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `DOGE/USDT`
+
+**Extended (add via chip picker):** BNB, ADA, AVAX, LINK, SUI, DOT, TON, LTC, BCH, SHIB, PEPE, UNI, NEAR, APT, ATOM, FIL, ARB, OP, INJ, AAVE, WIF
+
+| Symbol group | Venues |
 |---|---|
-| `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `DOGE/USDT` | Binance, Kraken, Coinbase, Bitget, KuCoin |
+| `BTC/USDT` … `DOGE/USDT` | Binance, Kraken, Coinbase, Bitget, KuCoin |
 | `BNB/USDT` | Binance, Bitget, KuCoin |
+| `ADA/USDT`, `AVAX/USDT`, `LINK/USDT`, `DOT/USDT`, `SHIB/USDT`, `ATOM/USDT` | Binance, Kraken, Bitget, KuCoin; Coinbase when selected |
+| `NEAR/USDT`, `OP/USDT` | Binance, Bitget, KuCoin; Coinbase when selected |
+| `SUI/USDT`, `PEPE/USDT`, `UNI/USDT`, `APT/USDT`, `FIL/USDT`, `ARB/USDT`, `INJ/USDT`, `AAVE/USDT`, `WIF/USDT` | Binance, Bitget, KuCoin |
+| `TON/USDT` | Binance, Kraken, KuCoin |
+| `LTC/USDT`, `BCH/USDT` | Binance, Kraken, Bitget, KuCoin |
 
-Each adapter maps exchange-native product ids (e.g. Kraken `XDGUSD` for DOGE/USD, KuCoin `BTC-USDT`) into internal symbols.
+Each adapter maps exchange-native product ids (e.g. Kraken `XDGUSD` for DOGE/USD, KuCoin `BTC-USDT`) into internal symbols. Venue coverage details and probe notes: [docs/SPRINT-USDT-EXPANSION.md](docs/SPRINT-USDT-EXPANSION.md).
 
 ## Quick start
 
@@ -128,26 +141,40 @@ Exchange base URLs and default fees are Spring configuration properties and can 
 
 Every ~3 seconds the backend runs a **non-overlapping** poll cycle:
 
-1. Fetch tickers via **batched** adapter calls (one request per venue where supported)
-2. Build the full directed buy/sell matrix for each symbol
-3. Apply one taker fee per exchange to produce net spreads
-4. Publish the **full matrix**, best-per-symbol, exchange health, and **symbol coverage** on `/topic/spreads`
-5. Persist only the **best opportunity per symbol** for that cycle
+1. Resolve **selected markets** from client preferences (`PUT /api/preferences/poll`), or before the first sync use the bootstrap default (all USD + major five USDT)
+2. Fetch tickers via **batched** adapter calls for Binance, Kraken, Bitget, and KuCoin, plus per-product Coinbase calls for selected symbols that venue lists
+3. Build the full directed buy/sell matrix for each polled symbol
+4. Apply one taker fee per exchange to produce net spreads
+5. Publish the matrix, best-per-symbol, exchange health, and **symbol coverage** for polled markets on `/topic/spreads`
+6. Persist only the **best opportunity per symbol** for that cycle
+
+The frontend syncs enabled markets whenever you toggle chips in the USDT bar or settings drawer. Disabled markets are not fetched from exchanges.
 
 **Live status** is green when at least **two** exchanges have fresh ticker data for the selected quote universe within the freshness window (default **10 seconds**). When venues are hidden in settings, the badge recomputes over **visible** venues only.
+
+## Dashboard UX
+
+| Area | Behavior |
+|---|---|
+| Header | USDT/USD toggle (USDT default), notional input, settings |
+| USDT bar | Major-five chips always visible; tap **+ N more** to add extended markets |
+| Top Opportunities | Ranked cards with All / Positive / Above threshold filters |
+| Full Matrix | One collapsed row per market; tap to expand routes; Expand all / Collapse all |
+| Settings | Venues, USD checkboxes, USDT chip picker with Major 5 only / All USDT presets |
 
 ## API (overview)
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/pairs` | Tracked pairs |
-| `GET` | `/api/exchanges` | Exchange status |
+| `GET` | `/api/pairs` | All tracked pairs in the database |
+| `GET` | `/api/exchanges` | Exchange status and freshness |
 | `GET` | `/api/fees` | Configured taker fees |
-| `GET` | `/api/config` | Frontend defaults (notional, freshness window, fees) |
+| `GET` | `/api/config` | Frontend defaults (notional, freshness window, fees, quote assets) |
+| `PUT` | `/api/preferences/poll` | Enabled market list — controls which symbols the backend polls |
 | `GET` | `/api/spreads/latest` | Latest best opportunities |
 | `GET` | `/api/spreads/history` | Bounded history (`limit`, optional time range) |
 
-Live matrix updates: STOMP topic `/topic/spreads` (SockJS-enabled endpoint). Snapshots include `coverage[]` with configured vs fresh venue counts per symbol.
+Live matrix updates: STOMP topic `/topic/spreads` (SockJS-enabled endpoint). Snapshots include `coverage[]` with configured vs fresh venue counts per polled symbol.
 
 ## Documentation
 
@@ -155,6 +182,7 @@ Live matrix updates: STOMP topic `/topic/spreads` (SockJS-enabled endpoint). Sna
 - [Architecture](docs/ARCHITECTURE.md) — components, data flow, persistence, API limits
 - [Sprint plan](docs/SPRINT.md) — delivery sprints and definition of done
 - [Sprint 3 implementation](docs/SPRINT3-IMPLEMENTATION.md) — asset expansion, settings, dashboard UX
+- [USDT expansion](docs/SPRINT-USDT-EXPANSION.md) — 20-market rollout, venue probe table, poll preferences
 - [Product idea / notes](docs/IDEA.MD) — original design notes
 
 ## Limitations
@@ -171,7 +199,9 @@ The dashboard footer states this explicitly. Use the language **indicative cross
 
 ## Exchange API usage
 
-Polling is **best effort** with graceful degradation. After Sprint 3 batching, the app issues ~**9 requests per 3s cycle** (~3 req/s total). Public rate limits are documented in [Architecture](docs/ARCHITECTURE.md#exchange-api-limits). The app continues with whichever exchanges respond successfully in a given cycle.
+Polling is **best effort** with graceful degradation. Batch venues (Binance, Kraken, Bitget, KuCoin) issue **one request per cycle** regardless of how many symbols you select; adapters filter to your enabled markets. Coinbase issues **one request per selected product** it lists.
+
+With the default five USDT markets plus five USD pairs, load stays well within public rate limits. See [Architecture](docs/ARCHITECTURE.md#exchange-api-limits) for vendor guidance.
 
 ## License
 

@@ -30,7 +30,9 @@ class BinanceAdapterTest {
                 "https://api.binance.com",
                 Map.of(
                         "BTC_USDT", new String[]{"BTCUSDT", "USDT"},
-                        "SOL_USDT", new String[]{"SOLUSDT", "USDT"}
+                        "SOL_USDT", new String[]{"SOLUSDT", "USDT"},
+                        "ADA_USDT", new String[]{"ADAUSDT", "USDT"},
+                        "SHIB_USDT", new String[]{"SHIBUSDT", "USDT"}
                 )
         );
         batchFixture = Files.readString(Paths.get("src/test/resources/fixtures/binance/batch-tickers.json"));
@@ -53,14 +55,16 @@ class BinanceAdapterTest {
     @Test
     void getTickers_batch_returnsAllSupported() {
         BinanceAdapter adapter = adapterReturning(batchFixture, HttpStatus.OK);
-        List<PriceTicker> tickers = adapter.getTickers(List.of("BTC/USDT", "SOL/USDT", "BTC/USD"))
+        List<PriceTicker> tickers = adapter.getTickers(List.of("BTC/USDT", "SOL/USDT", "ADA/USDT", "SHIB/USDT", "BTC/USD"))
                 .collectList()
                 .block();
 
         assertNotNull(tickers);
-        assertEquals(2, tickers.size());
+        assertEquals(4, tickers.size());
         assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("BTC/USDT")));
         assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("SOL/USDT")));
+        assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("ADA/USDT")));
+        assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("SHIB/USDT")));
         assertEquals(0, new BigDecimal("65015.27").compareTo(tickers.stream()
                 .filter(t -> t.symbol().equals("BTC/USDT"))
                 .findFirst()

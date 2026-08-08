@@ -50,8 +50,13 @@ public class SpreadPublisher {
      * Publish one snapshot containing the full matrix, best opportunities, and exchange health.
      * Called once per poll cycle, after the DB write completes.
      */
-    public void publishSnapshot(SpreadCalculationService.CalculationResult result, Instant calculatedAt) {
+    public void publishSnapshot(
+            SpreadCalculationService.CalculationResult result,
+            Instant calculatedAt,
+            List<String> polledSymbols
+    ) {
         long freshnessWindowMs = appProperties.getPolling().getFreshnessWindowMs();
+        Set<String> polledSet = Set.copyOf(polledSymbols);
 
         // Legacy global fields — kept for compatibility with any consumer that only cares about
         // "is anything at all live" rather than per-quote-asset health.
@@ -60,14 +65,11 @@ public class SpreadPublisher {
                 .count();
         boolean live = freshCount >= 2;
 
-        // Per-quote-asset freshness: a symbol's quote comes from its tracked_pair row (the
-        // authoritative mapping — not inferred from live ticker data, so it's correct even when
-        // a quote universe has zero fresh venues right now).
+        // Per-quote-asset freshness over polled symbols only.
         Map<String, List<String>> symbolsByQuote = trackedPairRepository.findByActiveTrue().stream()
-                .collect(Collectors.groupingBy(
-                        TrackedPair::getQuoteCurrency,
-                        Collectors.mapping(TrackedPair::getSymbol, Collectors.toList())
-                ));
+                .map(TrackedPair::getSymbol)
+                .filter(polledSet::contains)
+                .collect(Collectors.groupingBy(symbol -> symbol.substring(symbol.indexOf('/') + 1)));
 
         Map<String, Integer> freshCountByQuote = new LinkedHashMap<>();
         Map<String, Boolean> liveByQuote = new LinkedHashMap<>();
@@ -91,11 +93,13 @@ public class SpreadPublisher {
                 .toList();
 
         List<SymbolCoverageDto> coverage = trackedPairRepository.findByActiveTrue().stream()
-                .map(pair -> {
-                    String symbol = pair.getSymbol();
+                .map(TrackedPair::getSymbol)
+                .filter(polledSet::contains)
+                .map(symbol -> {
+                    String quoteCurrency = symbol.substring(symbol.indexOf('/') + 1);
                     return new SymbolCoverageDto(
                             symbol,
-                            pair.getQuoteCurrency(),
+                            quoteCurrency,
                             exchangeProperties.countVenuesForSymbol(symbol),
                             availabilityStore.countFreshForSymbol(symbol, freshnessWindowMs)
                     );

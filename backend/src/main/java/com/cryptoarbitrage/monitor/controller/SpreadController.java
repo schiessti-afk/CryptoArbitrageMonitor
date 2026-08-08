@@ -11,8 +11,10 @@ import com.cryptoarbitrage.monitor.exchange.Exchange;
 import com.cryptoarbitrage.monitor.model.SpreadLog;
 import com.cryptoarbitrage.monitor.repository.SpreadLogRepository;
 import com.cryptoarbitrage.monitor.repository.TrackedPairRepository;
+import com.cryptoarbitrage.monitor.service.ClientPollPreferenceService;
 import com.cryptoarbitrage.monitor.service.ExchangeAvailabilityStore;
 import com.cryptoarbitrage.monitor.service.FeeService;
+import com.cryptoarbitrage.monitor.dto.PollPreferenceDto;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -34,6 +36,7 @@ public class SpreadController {
     private final SpreadLogRepository spreadLogRepository;
     private final AppProperties appProperties;
     private final ExchangeProperties exchangeProperties;
+    private final ClientPollPreferenceService pollPreferenceService;
 
     public SpreadController(
             TrackedPairRepository trackedPairRepository,
@@ -41,7 +44,8 @@ public class SpreadController {
             ExchangeAvailabilityStore availabilityStore,
             SpreadLogRepository spreadLogRepository,
             AppProperties appProperties,
-            ExchangeProperties exchangeProperties
+            ExchangeProperties exchangeProperties,
+            ClientPollPreferenceService pollPreferenceService
     ) {
         this.trackedPairRepository = trackedPairRepository;
         this.feeService = feeService;
@@ -49,6 +53,7 @@ public class SpreadController {
         this.spreadLogRepository = spreadLogRepository;
         this.appProperties = appProperties;
         this.exchangeProperties = exchangeProperties;
+        this.pollPreferenceService = pollPreferenceService;
     }
 
     /**
@@ -136,6 +141,19 @@ public class SpreadController {
                 0.001,  // neutralEpsilonPercent (0.001% = 0.00001)
                 fees,
                 quoteAssets
+        ));
+    }
+
+    /**
+     * PUT /api/preferences/poll — client reports which markets are enabled for optional Coinbase polling.
+     */
+    @PutMapping("/preferences/poll")
+    public ResponseEntity<Map<String, Object>> updatePollPreferences(@RequestBody PollPreferenceDto body) {
+        List<String> enabled = body.enabledSymbols() == null ? List.of() : body.enabledSymbols();
+        pollPreferenceService.updateEnabledSymbols(enabled);
+        return ResponseEntity.ok(Map.of(
+                "enabledCount", enabled.size(),
+                "updatedAt", pollPreferenceService.getUpdatedAt().toString()
         ));
     }
 

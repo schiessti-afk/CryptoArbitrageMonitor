@@ -41,6 +41,7 @@ public class PollOrchestrationService {
     private final TrackedPairRepository trackedPairRepository;
     private final SpreadLogRepository spreadLogRepository;
     private final AppProperties appProperties;
+    private final ClientPollPreferenceService pollPreferenceService;
 
     @Autowired
     public PollOrchestrationService(
@@ -52,7 +53,8 @@ public class PollOrchestrationService {
             SpreadPublisher spreadPublisher,
             TrackedPairRepository trackedPairRepository,
             SpreadLogRepository spreadLogRepository,
-            AppProperties appProperties
+            AppProperties appProperties,
+            ClientPollPreferenceService pollPreferenceService
     ) {
         this.adapters = adapters;
         this.calculationService = calculationService;
@@ -63,6 +65,7 @@ public class PollOrchestrationService {
         this.trackedPairRepository = trackedPairRepository;
         this.spreadLogRepository = spreadLogRepository;
         this.appProperties = appProperties;
+        this.pollPreferenceService = pollPreferenceService;
     }
 
     @Scheduled(fixedDelayString = "${app.polling.interval-ms:3000}")
@@ -87,17 +90,27 @@ public class PollOrchestrationService {
         Instant cycleTimestamp = Instant.now();
         log.debug("Starting poll cycle");
 
-        // Step 1: Get active tracked pairs
+        // Step 1: Get active tracked pairs limited to client-selected markets
         List<TrackedPair> activePairs = trackedPairRepository.findByActiveTrue();
         if (activePairs.isEmpty()) {
             log.warn("No active tracked pairs");
             return;
         }
 
-        // Step 2: Fetch tickers for every (symbol, adapter) pair in one flattened Flux, not one
-        // sequential round-trip per symbol. At 4 symbols x 5 venues this is the difference
-        // between one round-trip and four.
-        Map<String, List<PriceTicker>> tickers = fetchTickersInParallel(activePairs);
+        List<String> pollSymbols = pollPreferenceService.resolvePollSymbols(
+                activePairs.stream().map(TrackedPair::getSymbol).toList());
+        if (pollSymbols.isEmpty()) {
+            log.warn("No markets selected for polling");
+            return;
+        }
+
+        Set<String> pollSet = Set.copyOf(pollSymbols);
+        List<TrackedPair> pairsToPoll = activePairs.stream()
+                .filter(pair -> pollSet.contains(pair.getSymbol()))
+                .toList();
+
+        // Step 2: Fetch tickers for selected markets only
+        Map<String, List<PriceTicker>> tickers = fetchTickersInParallel(pairsToPoll);
 
         if (tickers.isEmpty()) {
             log.warn("No tickers received from any exchange");
@@ -123,7 +136,7 @@ public class PollOrchestrationService {
 
         // Step 6: Publish to WebSocket subscribers
         try {
-            spreadPublisher.publishSnapshot(result, cycleTimestamp);
+            spreadPublisher.publishSnapshot(result, cycleTimestamp, pollSymbols);
         } catch (Exception e) {
             log.warn("Failed to publish snapshot: {}", e.getMessage());
         }
@@ -143,7 +156,7 @@ public class PollOrchestrationService {
 
         List<Mono<List<PriceTicker>>> adapterRequests = new ArrayList<>();
         for (ExchangeAdapter adapter : adapters) {
-            List<String> supported = symbols.stream().filter(adapter::supports).toList();
+            List<String> supported = resolveSymbolsForAdapter(adapter, symbols);
             if (supported.isEmpty()) {
                 continue;
             }
@@ -173,6 +186,10 @@ public class PollOrchestrationService {
             }
         }
         return bySymbol;
+    }
+
+    private List<String> resolveSymbolsForAdapter(ExchangeAdapter adapter, List<String> symbols) {
+        return symbols.stream().filter(adapter::supports).toList();
     }
 
     private void persistBestOpportunities(Map<String, SpreadCalculationService.SpreadOpportunity> bestPerSymbol, Instant cycleTimestamp) {

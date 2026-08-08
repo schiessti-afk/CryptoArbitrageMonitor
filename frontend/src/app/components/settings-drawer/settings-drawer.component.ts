@@ -13,11 +13,12 @@ import { FormsModule } from '@angular/forms';
 import { SettingsService, DashboardSettings } from '../../services/settings.service';
 import { ExchangeStatus } from '../../models/spread.model';
 import { AppConfig } from '../../models/spread.model';
+import { UsdtMarketPickerComponent } from '../usdt-market-picker/usdt-market-picker.component';
 
 @Component({
   selector: 'app-settings-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UsdtMarketPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-drawer.component.html',
 })
@@ -65,6 +66,15 @@ export class SettingsDrawerComponent {
 
   symbolsByQuote(quote: string): string[] {
     return this.symbols().filter(s => s.endsWith('/' + quote)).sort();
+  }
+
+  usdtSymbols(): string[] {
+    return this.symbolsByQuote('USDT');
+  }
+
+  quoteAssetsOrdered(): string[] {
+    const available = new Set(this.config().quoteAssets);
+    return ['USDT', 'USD'].filter(q => available.has(q));
   }
 
   patch(partial: Partial<DashboardSettings>) {
