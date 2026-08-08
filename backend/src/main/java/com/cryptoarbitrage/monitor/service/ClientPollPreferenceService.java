@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,9 +30,7 @@ public class ClientPollPreferenceService {
     }
 
     public void updateEnabledSymbols(List<String> enabledSymbols) {
-        List<String> normalized = enabledSymbols == null
-                ? List.of()
-                : enabledSymbols.stream().sorted().distinct().toList();
+        List<String> normalized = normalizeEnabledOrder(enabledSymbols);
         snapshot.set(new PreferenceSnapshot(normalized, Instant.now()));
     }
 
@@ -47,19 +47,47 @@ public class ClientPollPreferenceService {
     }
 
     /**
-     * Symbols to poll this cycle: client-enabled markets when preferences exist,
-     * otherwise all USD plus configured default USDT majors (pre-client bootstrap).
+     * Symbols to poll this cycle: client-enabled markets in enable order when preferences exist,
+     * otherwise USD pairs then configured default USDT majors (pre-client bootstrap).
      */
     public List<String> resolvePollSymbols(Collection<String> allActiveSymbols) {
-        List<String> activeList = allActiveSymbols.stream().sorted().distinct().toList();
+        Set<String> activeSet = new HashSet<>(allActiveSymbols);
         if (hasClientPreference()) {
-            Set<String> enabledSet = Set.copyOf(getEnabledSymbols());
-            return activeList.stream().filter(enabledSet::contains).toList();
+            return getEnabledSymbols().stream()
+                    .filter(activeSet::contains)
+                    .toList();
         }
-        Set<String> defaultMajors = Set.copyOf(appProperties.getPolling().getDefaultUsdtMajors());
-        return activeList.stream()
-                .filter(symbol -> symbol.endsWith("/USD") || defaultMajors.contains(symbol))
-                .toList();
+        return defaultPollOrder(activeSet);
+    }
+
+    private List<String> defaultPollOrder(Set<String> activeSet) {
+        List<String> result = new ArrayList<>();
+        allActiveSymbolsSorted(activeSet).stream()
+                .filter(symbol -> symbol.endsWith("/USD"))
+                .forEach(result::add);
+        for (String major : appProperties.getPolling().getDefaultUsdtMajors()) {
+            if (activeSet.contains(major)) {
+                result.add(major);
+            }
+        }
+        return result;
+    }
+
+    private static List<String> allActiveSymbolsSorted(Set<String> activeSet) {
+        return activeSet.stream().sorted().toList();
+    }
+
+    private static List<String> normalizeEnabledOrder(List<String> enabledSymbols) {
+        if (enabledSymbols == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String symbol : enabledSymbols) {
+            if (symbol != null && !symbol.isBlank()) {
+                seen.add(symbol.trim());
+            }
+        }
+        return List.copyOf(seen);
     }
 
     public record PreferenceSnapshot(List<String> enabledSymbols, Instant updatedAt) {

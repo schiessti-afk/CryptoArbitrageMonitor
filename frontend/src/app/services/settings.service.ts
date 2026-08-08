@@ -1,5 +1,6 @@
 import { Injectable, effect, signal } from '@angular/core';
 import {
+  bootstrapEnabledOrder,
   DEFAULT_DISABLED_USDT_EXTENDED,
   isUsdtExtended,
   isUsdtMajor,
@@ -10,6 +11,8 @@ export interface DashboardSettings {
   version: 2;
   disabledExchanges: string[];
   disabledSymbols: string[];
+  /** Client enable order for poll preferences; empty triggers bootstrap order. */
+  enabledOrder: string[];
   minNetSpreadPercent: number;
   hideBelowThreshold: boolean;
   theme: 'system' | 'light' | 'dark';
@@ -22,6 +25,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
   version: 2,
   disabledExchanges: [],
   disabledSymbols: [...DEFAULT_DISABLED_USDT_EXTENDED],
+  enabledOrder: [],
   minNetSpreadPercent: 0,
   hideBelowThreshold: false,
   theme: 'dark',
@@ -53,6 +57,9 @@ export function mergeSettings(raw: unknown): DashboardSettings {
     merged.version = 2;
   } else if (merged.version !== 2) {
     return { ...DEFAULT_SETTINGS };
+  }
+  if (!Array.isArray(merged.enabledOrder)) {
+    merged.enabledOrder = [];
   }
   return merged;
 }
@@ -127,12 +134,17 @@ export class SettingsService {
   toggleSymbol(symbol: string, enabled: boolean) {
     this.settings.update(current => {
       const disabled = new Set(current.disabledSymbols);
+      let enabledOrder = [...current.enabledOrder];
       if (enabled) {
         disabled.delete(symbol);
+        if (!enabledOrder.includes(symbol)) {
+          enabledOrder.push(symbol);
+        }
       } else {
         disabled.add(symbol);
+        enabledOrder = enabledOrder.filter(s => s !== symbol);
       }
-      const next = { ...current, disabledSymbols: Array.from(disabled).sort() };
+      const next = { ...current, disabledSymbols: Array.from(disabled).sort(), enabledOrder };
       writeStoredSettings(next);
       return next;
     });
@@ -143,7 +155,7 @@ export class SettingsService {
   }
 
   showAllSymbols() {
-    this.update({ disabledSymbols: [] });
+    this.update({ disabledSymbols: [], enabledOrder: [] });
   }
 
   /** Enable only the five major USDT markets; hide extended USDT; leave USD unchanged. */
@@ -159,22 +171,43 @@ export class SettingsService {
     for (const major of USDT_MAJOR_SYMBOLS) {
       disabled.delete(major);
     }
-    this.update({ disabledSymbols: Array.from(disabled).sort() });
+    this.update({ disabledSymbols: Array.from(disabled).sort(), enabledOrder: [] });
   }
 
   /** Enable every tracked USDT market. */
   showAllUsdt(allSymbols: string[]) {
     const disabled = this.settings().disabledSymbols.filter(s => !s.endsWith('/USDT'));
-    this.update({ disabledSymbols: disabled });
+    this.update({ disabledSymbols: disabled, enabledOrder: [] });
   }
 
   clearFilters() {
     this.update({
       disabledExchanges: [],
       disabledSymbols: [],
+      enabledOrder: [],
       minNetSpreadPercent: 0,
       hideBelowThreshold: false,
     });
+  }
+
+  /** Enabled symbols in poll order for backend sync. */
+  resolveEnabledPollOrder(allSymbols: string[]): string[] {
+    const disabled = new Set(this.settings().disabledSymbols);
+    const enabled = allSymbols.filter(s => !disabled.has(s));
+    const order = this.settings().enabledOrder;
+    if (order.length === 0) {
+      return bootstrapEnabledOrder(enabled);
+    }
+    const enabledSet = new Set(enabled);
+    const result: string[] = [];
+    for (const symbol of order) {
+      if (enabledSet.has(symbol)) {
+        result.push(symbol);
+        enabledSet.delete(symbol);
+      }
+    }
+    result.push(...Array.from(enabledSet).sort());
+    return result;
   }
 
   private applyTheme(theme: DashboardSettings['theme']) {

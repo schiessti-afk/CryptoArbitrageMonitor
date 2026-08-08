@@ -75,3 +75,23 @@ export function partitionUsdtSymbols(symbols: string[]): {
     extended: usdt.filter(isUsdtExtended),
   };
 }
+
+/** Default enable order: USD pairs, USDT majors, then remaining enabled alphabetically. */
+export function bootstrapEnabledOrder(enabledSymbols: string[]): string[] {
+  const enabledSet = new Set(enabledSymbols);
+  const result: string[] = [];
+
+  for (const symbol of enabledSymbols.filter(s => s.endsWith('/USD')).sort()) {
+    result.push(symbol);
+  }
+  for (const major of USDT_MAJOR_SYMBOLS) {
+    if (enabledSet.has(major)) {
+      result.push(major);
+    }
+  }
+  const placed = new Set(result);
+  for (const symbol of enabledSymbols.filter(s => !placed.has(s)).sort()) {
+    result.push(symbol);
+  }
+  return result;
+}

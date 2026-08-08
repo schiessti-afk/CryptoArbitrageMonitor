@@ -43,6 +43,7 @@ public class PollOrchestrationService {
     private final SpreadLogRepository spreadLogRepository;
     private final AppProperties appProperties;
     private final ClientPollPreferenceService pollPreferenceService;
+    private final CoinbasePollSymbolResolver coinbasePollSymbolResolver;
 
     @Autowired
     public PollOrchestrationService(
@@ -56,7 +57,8 @@ public class PollOrchestrationService {
             TrackedPairRepository trackedPairRepository,
             SpreadLogRepository spreadLogRepository,
             AppProperties appProperties,
-            ClientPollPreferenceService pollPreferenceService
+            ClientPollPreferenceService pollPreferenceService,
+            CoinbasePollSymbolResolver coinbasePollSymbolResolver
     ) {
         this.adapters = adapters;
         this.calculationService = calculationService;
@@ -69,6 +71,7 @@ public class PollOrchestrationService {
         this.spreadLogRepository = spreadLogRepository;
         this.appProperties = appProperties;
         this.pollPreferenceService = pollPreferenceService;
+        this.coinbasePollSymbolResolver = coinbasePollSymbolResolver;
     }
 
     @Scheduled(fixedDelayString = "${app.polling.interval-ms:3000}")
@@ -107,13 +110,8 @@ public class PollOrchestrationService {
             return;
         }
 
-        Set<String> pollSet = Set.copyOf(pollSymbols);
-        List<TrackedPair> pairsToPoll = activePairs.stream()
-                .filter(pair -> pollSet.contains(pair.getSymbol()))
-                .toList();
-
         // Step 2: Fetch tickers for selected markets only
-        Map<String, List<PriceTicker>> tickers = fetchTickersInParallel(pairsToPoll);
+        Map<String, List<PriceTicker>> tickers = fetchTickersInParallel(pollSymbols);
 
         if (tickers.isEmpty()) {
             log.warn("No tickers received from any exchange");
@@ -154,9 +152,7 @@ public class PollOrchestrationService {
      * offer a given symbol (see {@link ExchangeAdapter#supports}) are skipped before any HTTP
      * call is made.
      */
-    private Map<String, List<PriceTicker>> fetchTickersInParallel(List<TrackedPair> activePairs) {
-        List<String> symbols = activePairs.stream().map(TrackedPair::getSymbol).toList();
-
+    private Map<String, List<PriceTicker>> fetchTickersInParallel(List<String> pollSymbolsOrdered) {
         List<Mono<List<PriceTicker>>> adapterRequests = new ArrayList<>();
         for (ExchangeAdapter adapter : adapters) {
             Exchange exchange = adapter.getExchange();
@@ -164,7 +160,7 @@ public class PollOrchestrationService {
                 log.debug("Skipping {} — backing off until {}", exchange, backoffStore.getBackoffUntil(exchange));
                 continue;
             }
-            List<String> supported = resolveSymbolsForAdapter(adapter, symbols);
+            List<String> supported = resolveSymbolsForAdapter(adapter, pollSymbolsOrdered);
             if (supported.isEmpty()) {
                 continue;
             }
@@ -199,8 +195,18 @@ public class PollOrchestrationService {
         return bySymbol;
     }
 
-    private List<String> resolveSymbolsForAdapter(ExchangeAdapter adapter, List<String> symbols) {
-        return symbols.stream().filter(adapter::supports).toList();
+    private List<String> resolveSymbolsForAdapter(ExchangeAdapter adapter, List<String> pollSymbolsOrdered) {
+        List<String> supported = pollSymbolsOrdered.stream().filter(adapter::supports).toList();
+        if (adapter.getExchange() != Exchange.COINBASE) {
+            return supported;
+        }
+        List<String> resolved = coinbasePollSymbolResolver.resolve(pollSymbolsOrdered);
+        int skipped = supported.size() - resolved.size();
+        if (skipped > 0) {
+            log.info("Coinbase: polling {} of {} products (skipped {} over budget)",
+                    resolved.size(), supported.size(), skipped);
+        }
+        return resolved;
     }
 
     private void persistBestOpportunities(Map<String, SpreadCalculationService.SpreadOpportunity> bestPerSymbol, Instant cycleTimestamp) {

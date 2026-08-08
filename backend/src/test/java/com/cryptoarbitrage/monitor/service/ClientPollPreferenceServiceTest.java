@@ -37,12 +37,19 @@ class ClientPollPreferenceServiceTest {
     }
 
     @Test
-    void clientPreference_pollsOnlyEnabled() {
+    void clientPreference_pollsOnlyEnabled_inEnableOrder() {
         service.updateEnabledSymbols(List.of("BTC/USDT", "ADA/USDT"));
 
         List<String> polled = service.resolvePollSymbols(ALL);
 
-        assertEquals(List.of("ADA/USDT", "BTC/USDT"), polled);
+        assertEquals(List.of("BTC/USDT", "ADA/USDT"), polled);
+    }
+
+    @Test
+    void clientPreference_deduplicatesPreservingFirstOccurrence() {
+        service.updateEnabledSymbols(List.of("BTC/USDT", "ADA/USDT", "BTC/USDT"));
+
+        assertEquals(List.of("BTC/USDT", "ADA/USDT"), service.getEnabledSymbols());
     }
 
     @Test

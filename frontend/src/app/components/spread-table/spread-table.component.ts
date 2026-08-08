@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity, SymbolCoverage } from '../../models/spread.model';
-import { DashboardSettings } from '../../services/settings.service';
+import { DashboardSettings, DEFAULT_SETTINGS } from '../../services/settings.service';
 import { FlashOnChangeDirective } from '../../directives/flash-on-change.directive';
 import { getSpreadState, getStateBackgroundClass } from '../../utils/spread-state';
 import { isBelowThreshold } from '../../utils/dashboard-filter';
@@ -25,17 +25,7 @@ export class SpreadTableComponent {
   quoteAsset = input('USD');
   coverage = input<SymbolCoverage[]>([]);
   loading = input(false);
-  settings = input<DashboardSettings>({
-    version: 2,
-    disabledExchanges: [],
-    disabledSymbols: [],
-    minNetSpreadPercent: 0,
-    hideBelowThreshold: false,
-    theme: 'dark',
-    density: 'comfortable',
-    freshnessWindowMsOverride: null,
-    defaultNotionalOverride: null,
-  });
+  settings = input<DashboardSettings>({ ...DEFAULT_SETTINGS, disabledSymbols: [] });
   density = input<'comfortable' | 'compact'>('comfortable');
   selectedRoute = input<SpreadOpportunity | null>(null);
 

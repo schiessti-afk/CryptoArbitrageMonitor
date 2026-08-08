@@ -42,8 +42,7 @@ export class PollPreferenceService {
     if (symbols.length === 0) {
       return;
     }
-    const disabled = new Set(this.settings.settings().disabledSymbols);
-    const enabled = symbols.filter(s => !disabled.has(s));
+    const enabled = this.settings.resolveEnabledPollOrder(symbols);
     this.http.put('/api/preferences/poll', { enabledSymbols: enabled }).subscribe({
       error: () => {
         // Non-fatal — backend keeps last known preference or core-only default.

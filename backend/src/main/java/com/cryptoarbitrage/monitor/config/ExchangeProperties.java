@@ -71,10 +71,10 @@ public class ExchangeProperties {
         private long connectTimeoutMs = 5000;
         private long responseTimeoutMs = 10000;
         private Map<String, MarketConfig> markets = new HashMap<>();
-        /** Coinbase only: always-polled internal symbols (e.g. {@code BTC/USD}). */
+        /** Coinbase only: priority-ordered internal symbols polled first (e.g. {@code BTC/USD}). */
         private java.util.List<String> coreSymbols = java.util.List.of();
-        /** Coinbase only: also poll optional markets when enabled count is at or below this value. */
-        private int expandWhenEnabledAtMost = 8;
+        /** Coinbase only: max product ticker calls per poll cycle (public REST ~10 req/s/IP). */
+        private int maxProductsPerCycle = 8;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -116,12 +116,12 @@ public class ExchangeProperties {
             this.coreSymbols = coreSymbols == null ? java.util.List.of() : coreSymbols;
         }
 
-        public int getExpandWhenEnabledAtMost() {
-            return expandWhenEnabledAtMost;
+        public int getMaxProductsPerCycle() {
+            return maxProductsPerCycle;
         }
 
-        public void setExpandWhenEnabledAtMost(int expandWhenEnabledAtMost) {
-            this.expandWhenEnabledAtMost = expandWhenEnabledAtMost;
+        public void setMaxProductsPerCycle(int maxProductsPerCycle) {
+            this.maxProductsPerCycle = maxProductsPerCycle;
         }
 
         /**

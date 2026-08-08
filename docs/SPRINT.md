@@ -165,7 +165,7 @@ Full breakdown in [SPRINT-USDT-EXPANSION.md](./SPRINT-USDT-EXPANSION.md).
 ### Exit criteria
 
 - [x] All V5/V6 USDT pairs stream on ≥2 batched venues (Binance/Kraken/Bitget/KuCoin)
-- [x] Coinbase stays on core set when >8 markets enabled; expands optional USDT when ≤8 enabled
+- [x] Coinbase capped at 8 product calls/cycle; core symbols first, then client enable order
 - [x] Dashboard settings sync enabled symbols to backend without raising batch-venue request count
 
 ---

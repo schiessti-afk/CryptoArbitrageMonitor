@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -63,6 +64,12 @@ public class CoinbaseAdapter implements ExchangeAdapter {
                     log.warn("Coinbase: error fetching {}: {}", internalSymbol, e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    @Override
+    public Flux<PriceTicker> getTickers(java.util.Collection<String> internalSymbols) {
+        return Flux.fromIterable(internalSymbols)
+                .flatMap(this::getTicker, 4);
     }
 
     private ExchangeProperties.MarketConfig market(String internalSymbol) {

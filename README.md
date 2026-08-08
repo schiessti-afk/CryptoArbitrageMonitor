@@ -111,8 +111,8 @@ Binance global spot lists SOL/USD but not XRP/USD or DOGE/USD (verified live).
 |---|---|
 | `BTC/USDT` … `DOGE/USDT` | Binance, Kraken, Coinbase, Bitget, KuCoin |
 | `BNB/USDT` | Binance, Bitget, KuCoin |
-| `ADA/USDT`, `AVAX/USDT`, `LINK/USDT`, `DOT/USDT`, `SHIB/USDT`, `ATOM/USDT` | Binance, Kraken, Bitget, KuCoin; Coinbase when selected |
-| `NEAR/USDT`, `OP/USDT`, `HBAR/USDT`, `STX/USDT`, `FET/USDT` | Binance, Bitget, KuCoin; Coinbase when selected |
+| `ADA/USDT`, `AVAX/USDT`, `LINK/USDT`, `DOT/USDT`, `SHIB/USDT`, `ATOM/USDT` | Binance, Kraken, Bitget, KuCoin; Coinbase when within per-cycle budget |
+| `NEAR/USDT`, `OP/USDT`, `HBAR/USDT`, `STX/USDT`, `FET/USDT` | Binance, Bitget, KuCoin; Coinbase when within per-cycle budget |
 | `ALGO/USDT`, `VET/USDT` | Binance, Kraken, Bitget, KuCoin |
 | `LTC/USDT`, `BCH/USDT` | Binance, Kraken, Bitget, KuCoin |
 | `TON/USDT` | Binance, Kraken, KuCoin |
@@ -204,11 +204,11 @@ The dashboard footer states this explicitly. Use the language **indicative cross
 
 ## Exchange API usage
 
-Polling is **best effort** with graceful degradation. Batch venues (Binance, Kraken, Bitget, KuCoin) issue **one request per cycle** regardless of how many symbols you select; adapters filter to your enabled markets. Coinbase issues **one request per selected product** it lists.
+Polling is **best effort** with graceful degradation. Batch venues (Binance, Kraken, Bitget, KuCoin) issue **one request per cycle** regardless of how many symbols you select; adapters filter to your enabled markets. Coinbase issues **one request per product** it polls, capped at **8 products per cycle** (core symbols first, then enable order).
 
 If a venue returns **HTTP 429/418** or a request times out, the backend **backs off that venue** (default 15s, doubling to 120s on repeats) and skips it on subsequent poll cycles until the window ends. Other exchanges continue. Details: [Architecture — exchange backoff](docs/ARCHITECTURE.md#error-handling).
 
-With the default five USDT markets plus five USD pairs, load stays well within public rate limits. See [Architecture](docs/ARCHITECTURE.md#exchange-api-limits) for vendor guidance.
+With the default five USDT markets plus five USD pairs, Coinbase polls all 10 core products but only **8 per cycle** under the budget — lowest-priority core entries wait until higher-priority markets are disabled. Enabling many extended USDT markets adds Coinbase coverage only when budget slots remain after core symbols. See [Architecture](docs/ARCHITECTURE.md#exchange-api-limits) for vendor guidance.
 
 ## License
 

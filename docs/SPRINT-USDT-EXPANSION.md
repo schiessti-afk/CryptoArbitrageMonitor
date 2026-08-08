@@ -36,9 +36,9 @@ All 20 rows meet the ≥2 venue rule among Binance/Kraken/Bitget/KuCoin.
 
 ## Coinbase polling
 
-- **Core (always polled):** existing USD + USDT products from Sprint 3 (`core-symbols` in `application.properties`).
-- **Optional (expand):** ADA, AVAX, LINK, DOT, SHIB, NEAR, ATOM, OP USDT — polled only when the client reports **≤8 enabled markets** via `PUT /api/preferences/poll`.
-- Frontend `PollPreferenceService` syncs enabled symbols whenever settings or the pair list changes.
+- **Per-cycle budget:** at most **8** product ticker calls (`max-products-per-cycle` in `application.properties`).
+- **Priority:** configured **core symbols** first (USD + major USDT from Sprint 3), then other enabled Coinbase markets in **client enable order**; symbols beyond the budget get no Coinbase ticker that cycle (other venues still poll them).
+- Frontend `PollPreferenceService` syncs enabled symbols in enable order via `PUT /api/preferences/poll` whenever settings or the pair list changes.
 
 ## Files touched
 
