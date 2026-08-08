@@ -1,9 +1,13 @@
 import { mergeSettings, DEFAULT_SETTINGS } from './settings.service';
 import {
+  applyOpportunityQuickFilter,
+  buildRankedOpportunities,
+  describeFilterChips,
   filterMatrixBySettings,
   recomputeBestPerSymbol,
   collapseMirroredRoutes,
   computeVisibleLive,
+  countVisibleFreshExchanges,
 } from '../utils/dashboard-filter';
 import { SpreadOpportunity, ExchangeStatus } from '../models/spread.model';
 
@@ -102,5 +106,69 @@ describe('filter pipeline', () => {
     const settings = { ...DEFAULT_SETTINGS, disabledExchanges: ['COINBASE', 'KRAKEN'] };
     const live = computeVisibleLive(exchanges, 'USD', settings, true, 10000, Date.now());
     expect(live).toBeFalse();
+  });
+
+  it('filterMatrixBySettings hides rows below threshold when configured', () => {
+    const matrix = [
+      { ...row('BINANCE', 'KRAKEN'), netSpreadPercent: 0.2 },
+      { ...row('BINANCE', 'COINBASE'), netSpreadPercent: 0.8 },
+    ];
+    const filtered = filterMatrixBySettings(matrix, {
+      ...DEFAULT_SETTINGS,
+      minNetSpreadPercent: 0.5,
+      hideBelowThreshold: true,
+    });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].netSpreadPercent).toBe(0.8);
+  });
+
+  it('applyOpportunityQuickFilter supports positive and aboveThreshold', () => {
+    const rows = [
+      { ...row('BINANCE', 'KRAKEN'), netSpreadPercent: 0.0005 },
+      { ...row('BINANCE', 'COINBASE'), netSpreadPercent: 0.4 },
+      { ...row('KRAKEN', 'COINBASE'), netSpreadPercent: 0.9 },
+    ];
+    const settings = { ...DEFAULT_SETTINGS, minNetSpreadPercent: 0.5 };
+    expect(applyOpportunityQuickFilter(rows, 'positive', settings).length).toBe(2);
+    expect(applyOpportunityQuickFilter(rows, 'aboveThreshold', settings).map(r => r.netSpreadPercent)).toEqual([0.9]);
+  });
+
+  it('buildRankedOpportunities recomputes best when venues are disabled', () => {
+    const matrix = [
+      { ...row('BINANCE', 'KRAKEN'), netSpreadPercent: 0.2 },
+      { ...row('BINANCE', 'COINBASE'), netSpreadPercent: 0.8 },
+    ];
+    const backendBest = [{ ...row('BINANCE', 'KRAKEN'), netSpreadPercent: 0.2 }];
+    const ranked = buildRankedOpportunities(
+      backendBest,
+      matrix,
+      { ...DEFAULT_SETTINGS, disabledExchanges: ['KRAKEN'] },
+      'all'
+    );
+    expect(ranked.length).toBe(1);
+    expect(ranked[0].netSpreadPercent).toBe(0.8);
+  });
+
+  it('countVisibleFreshExchanges and describeFilterChips reflect settings', () => {
+    const now = Date.now();
+    const exchanges: ExchangeStatus[] = [
+      { exchange: 'BINANCE', available: true, freshness: 'FRESH', offeredQuoteAssets: ['USDT'], lastUpdate: new Date(now).toISOString() },
+      { exchange: 'KRAKEN', available: true, freshness: 'STALE', offeredQuoteAssets: ['USDT'], lastUpdate: new Date(now - 20_000).toISOString() },
+      { exchange: 'COINBASE', available: true, freshness: 'FRESH', offeredQuoteAssets: ['USD'], lastUpdate: new Date(now).toISOString() },
+    ];
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      disabledExchanges: ['COINBASE'],
+      disabledSymbols: ['BNB/USDT'],
+      minNetSpreadPercent: 0.25,
+      hideBelowThreshold: true,
+    };
+    expect(countVisibleFreshExchanges(exchanges, 'USDT', settings, 10_000, now)).toEqual({ fresh: 1, total: 2 });
+    expect(describeFilterChips(settings)).toEqual([
+      '1 venue hidden',
+      '1 market hidden',
+      'net ≥ 0.25%',
+      'hiding below threshold',
+    ]);
   });
 });

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -17,8 +18,10 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderBookController.class)
@@ -54,11 +57,15 @@ class OrderBookControllerTest {
                 .thenReturn(Mono.just(new RouteOrderBookDto(
                         "BTC/USDT", "BINANCE", "KRAKEN", buyBook, sellBook, null, null)));
 
-        mockMvc.perform(get("/api/orderbook/route")
+        MvcResult mvcResult = mockMvc.perform(get("/api/orderbook/route")
                         .param("symbol", "BTC/USDT")
                         .param("buyExchange", "BINANCE")
                         .param("sellExchange", "KRAKEN")
                         .param("depth", "20"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(mvcResult))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.symbol").value("BTC/USDT"))
                 .andExpect(jsonPath("$.buyBook.exchange").value("BINANCE"))
@@ -67,10 +74,15 @@ class OrderBookControllerTest {
 
     @Test
     void getRouteOrderBook_missingSymbol_returnsBadRequest() throws Exception {
-        mockMvc.perform(get("/api/orderbook/route")
+        MvcResult mvcResult = mockMvc.perform(get("/api/orderbook/route")
                         .param("symbol", " ")
                         .param("buyExchange", "BINANCE")
                         .param("sellExchange", "KRAKEN"))
-                .andExpect(status().isBadRequest());
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("symbol is required"));
     }
 }
