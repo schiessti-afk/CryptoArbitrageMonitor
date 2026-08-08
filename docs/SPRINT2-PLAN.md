@@ -177,6 +177,64 @@ withdrawal fees, and transfer time are not modelled.
 
 ---
 
+## Sprint 2 Refinements — UI clarity and fee transparency
+
+After initial delivery, seven improvements to make the dashboard honest, transparent, and testable.
+
+### 1. Make quote market explicit and self-verifying
+
+Add `nativeSymbol` and `quoteAsset` to [PriceTicker](../backend/src/main/java/com/cryptoarbitrage/monitor/exchange/PriceTicker.java) and thread through to `SpreadDto`, enabling per-leg asset visibility. Nest symbol config in `ExchangeProperties`:
+
+```
+exchange.binance.markets.BTC_USD.native-symbol=BTCUSD
+exchange.binance.markets.BTC_USD.quote-asset=USD
+```
+
+Add `@PostConstruct` config validator that logs WARN if configured quote assets disagree for one internal symbol — catches accidental USDT swaps. Update UI header to state explicitly: `BTC/USD — indicative cross-venue comparison` with tooltip listing native markets (Binance BTCUSD, Kraken XXBTZUSD, Coinbase BTC-USD).
+
+### 2. "Best Current Spreads" with explicit verdict
+
+Rename heading from "Best Opportunities" to "Best Current Spreads". Add per-card status band driven by a shared classifier in `frontend/src/app/utils/spread-state.ts`:
+
+| State | Condition | Display |
+|---|---|---|
+| POTENTIAL OPPORTUNITY | net > +0.001% | 🟢 `Net spread: +0.2910%` |
+| NO POSITIVE OPPORTUNITY | net < −0.001% | 🔴 `Best net spread: -0.3675%` |
+| NO MEANINGFUL SPREAD | \|net\| ≤ 0.001% | ⚪ `Net spread: 0.0000%` |
+
+Keep `Est. Profit` labelled **Estimated profit** and allow it to go negative — that's the honest reading.
+
+### 3. Unified spread-state styling
+
+Replace all `netSpreadPercent < 0 ? ... : ...` ternaries in the detail card and table with a shared `stateClasses()` map that returns Tailwind classes for background, border, dot, and text. Eliminates duplication and ensures the two views classify identically.
+
+### 4. Matrix: group by symbol, then sort by net desc
+
+Add a symbol column (or grouped subheaders). Sort within each symbol by `netSpreadPercent` descending (tiebreak on raw desc, then buy exchange name). Group the computed signal in [spread-table.component.ts](../frontend/src/app/components/spread-table/spread-table.component.ts) so the WebSocket payload stays flat. Also standardize matrix precision to 4 decimals to match the detail card (currently 2dp in the table, 4dp in the card).
+
+### 5. Notional quick-select + config endpoint
+
+Add quick-select buttons `$100 / $1,000 / $5,000 / $10,000 / $50,000` above the existing input. Clamp input (min 1, max 10,000,000). Expose `GET /api/config` returning `defaultNotional`, `freshnessWindowMs`, `neutralEpsilonPercent`, and the live fee list, so the frontend has one source of truth.
+
+### 6. Ticking freshness, measured on client clock
+
+Fix three problems:
+- Add a 1s `setInterval` in `ConnectionStatusComponent` (registered in `NgZone`, cleared in `ngOnDestroy`) driving a `now` signal for age recalculation.
+- Record `receivedAt = Date.now()` when a message arrives, measure age from that (not from server's `calculatedAt`).
+- Remove the `snapshot.live = false` mutation on the staleness timer; instead expose `lastMessageAt` and let the UI derive the three-state badge (LIVE / DEGRADED / STALE) with logic: STALE if age > 10s, else DEGRADED if backend `live=false`, else LIVE.
+
+### 7. Fee visibility and reproducibility
+
+Add `GET /api/config` endpoint. Render a collapsible **Fees & spread math** panel showing the fee list and formula:
+
+```
+net% = ((sell × (1 − sellFee)) / (buy × (1 + buyFee)) − 1) × 100
+```
+
+Add an optional `Fees %` column to the matrix showing the fee impact per route. Write a `SpreadCalculationServiceTest` case using the exact screenshot numbers (buy 64,967.30 Kraken / sell 64,963.00 Binance → net −0.3675%) to enforce reproducibility. Add test cases for `spreadState()` boundaries and matrix sort order. Update README and [ARCHITECTURE.md](./ARCHITECTURE.md) with a "Fees and spread math" section, fee table, formula, and one worked example.
+
+---
+
 ## Testing
 
 **Backend**
