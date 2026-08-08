@@ -288,4 +288,38 @@ class SpreadCalculationServiceTest {
         assertEquals("USD", result.bestPerSymbol.get("BTC/USD").buyQuoteAsset);
         assertEquals("USDT", result.bestPerSymbol.get("BTC/USDT").buyQuoteAsset);
     }
+
+    @Test
+    void testManySymbols_noCrossSymbolContamination() {
+        Map<String, List<PriceTicker>> tickers = new LinkedHashMap<>();
+        String[] symbols = {"BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD", "DOGE/USD",
+                "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT", "BNB/USDT"};
+
+        for (String symbol : symbols) {
+            tickers.put(symbol, List.of(
+                    new PriceTicker(Exchange.BINANCE, symbol, "N1", symbol.contains("USDT") ? "USDT" : "USD",
+                            new BigDecimal("100"), new BigDecimal("101"), Instant.now()),
+                    new PriceTicker(Exchange.KRAKEN, symbol, "N2", symbol.contains("USDT") ? "USDT" : "USD",
+                            new BigDecimal("102"), new BigDecimal("103"), Instant.now())
+            ));
+        }
+
+        Map<Exchange, BigDecimal> fees = Map.of(
+                Exchange.BINANCE, new BigDecimal("0.001"),
+                Exchange.KRAKEN, new BigDecimal("0.001")
+        );
+
+        SpreadCalculationService.CalculationResult result = service.calculateSpreads(tickers, fees);
+
+        assertEquals(symbols.length, result.bestPerSymbol.size());
+        for (var opp : result.fullMatrix) {
+            assertEquals(opp.symbol, opp.buyQuoteAsset.equals("USDT") || opp.buyQuoteAsset.equals("USD")
+                    ? opp.symbol.split("/")[0] + "/" + opp.buyQuoteAsset : opp.symbol);
+            assertEquals(opp.buyQuoteAsset, opp.sellQuoteAsset);
+        }
+        for (String symbol : symbols) {
+            assertTrue(result.bestPerSymbol.containsKey(symbol));
+            assertEquals(symbol, result.bestPerSymbol.get(symbol).symbol);
+        }
+    }
 }

@@ -59,7 +59,7 @@ Optional: IntelliJ IDEA / VS Code / Cursor. No system Maven required — use `ba
 - [x] REST: `/api/pairs`, `/api/exchanges`, `/api/fees`, `/api/spreads/latest`
 - [x] REST: `/api/spreads/history` with required `limit` + optional `from`/`to`
 - [x] Unit tests for spread calculation
-- [ ] Adapter tests with response fixtures — fixtures for all three; only `KrakenAdapterTest` so far
+- [x] Adapter tests with response fixtures — Binance, Kraken, Bitget, KuCoin (+ batch fixtures in Sprint 3)
 - [x] At least one DB integration test (app + PostgreSQL + repository)
 
 ### Sprint 1 exit criteria
@@ -83,7 +83,7 @@ Backend can run against Postgres, complete poll cycles with ≥1 exchange, write
 - [x] Connection status: **green/LIVE** when ≥2 exchanges have fresh data within **10 seconds**
 - [x] Per-exchange availability indicators
 - [x] User-selectable hypothetical investment (default **$1,000**); estimated profit updates in UI
-- [ ] Copy uses **indicative cross-venue arbitrage opportunity** — in README; not yet on the dashboard
+- [x] Copy uses **indicative cross-venue arbitrage opportunity** — README + dashboard footer (Sprint 3)
 - [x] Last update timestamp and clear bid/ask buy-sell direction
 
 ### Sprint 2 exit criteria
@@ -97,50 +97,53 @@ With backend from Sprint 1, the dashboard updates live without frontend polling 
 **Goal:** Grow the tracked universe from 2 assets to 6, put the dashboard under user control, and
 raise the UI to a state-of-the-art monitoring surface.
 
-Full breakdown in [SPRINT3-PLAN.md](./SPRINT3-PLAN.md).
+Full breakdown in [SPRINT3-PLAN.md](./SPRINT3-PLAN.md). Implementation notes: [SPRINT3-IMPLEMENTATION.md](./SPRINT3-IMPLEMENTATION.md).
 
 ### Phase 1 — Asset universe expansion
 
-- [ ] Live-probe native symbols for SOL, XRP, DOGE, BNB on all five venues before writing config
-- [ ] Settle whether `api.binance.com` actually serves USD spot markets (affects the existing BTC/ETH USD config too)
-- [ ] Batch the ticker fetch per venue (`getTickers`) — Binance, Kraken, Bitget, KuCoin; Coinbase has no batch endpoint
-- [ ] Migration `V4`: `SOL/USD`, `XRP/USD`, `DOGE/USD`, `SOL/USDT`, `XRP/USDT`, `DOGE/USDT`, `BNB/USDT`
-- [ ] Config entries in `application.properties` for every probed market (BNB is USDT-only — no Coinbase or Kraken listing)
-- [ ] Per-symbol coverage in the published snapshot so thin markets explain themselves
-- [ ] `MarketConfigValidator`: warn on under-covered symbols and config/DB drift
-- [ ] Batch-response fixtures and tests, including a partial batch
-- [ ] Post-batching request rates recorded in [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [x] Live-probe native symbols for SOL, XRP, DOGE, BNB on all five venues before writing config
+- [x] Settle whether `api.binance.com` actually serves USD spot markets — **yes for BTC/ETH/SOL; no for XRP/DOGE USD**
+- [x] Batch the ticker fetch per venue (`getTickers`) — Binance, Kraken, Bitget, KuCoin; Coinbase has no batch endpoint
+- [x] Migration `V4`: `SOL/USD`, `XRP/USD`, `DOGE/USD`, `SOL/USDT`, `XRP/USDT`, `DOGE/USDT`, `BNB/USDT`
+- [x] Config entries in `application.properties` for every probed market (BNB is USDT-only — no Coinbase or Kraken listing)
+- [x] Per-symbol coverage in the published snapshot so thin markets explain themselves
+- [x] `MarketConfigValidator`: warn on under-covered symbols and config/DB drift
+- [x] Batch-response fixtures and tests, including a partial batch
+- [x] Post-batching request rates recorded in [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ### Phase 2 — Settings
 
-- [ ] `SettingsService` — signal-backed, `localStorage`-persisted, merge-over-defaults
-- [ ] Gear icon opening a settings drawer: venues, markets, opportunity threshold, appearance, advanced
-- [ ] Disable any exchange or pair; default state shows everything
-- [ ] Min net-spread threshold with dim-vs-hide choice
-- [ ] Dark mode and density stored (rendered in Phase 3)
-- [ ] Freshness-window and default-notional overrides on top of `/api/config`
-- [ ] One consolidated filter pipeline; best-per-symbol recomputed when a venue is hidden
-- [ ] LIVE badge recomputed over visible venues so it agrees with what is on screen
-- [ ] Visible active-filter chips and a "showing N of M" count — nothing hidden without a marker
+- [x] `SettingsService` — signal-backed, `localStorage`-persisted, merge-over-defaults
+- [x] Gear icon opening a settings drawer: venues, markets, opportunity threshold, appearance, advanced
+- [x] Disable any exchange or pair; default state shows everything
+- [x] Min net-spread threshold with dim-vs-hide choice
+- [x] Dark mode and density stored and rendered
+- [x] Freshness-window and default-notional overrides on top of `/api/config`
+- [x] One consolidated filter pipeline; best-per-symbol recomputed when a venue is hidden
+- [x] LIVE badge recomputed over visible venues so it agrees with what is on screen
+- [x] Visible active-filter chips and a "showing N of M" count — nothing hidden without a marker
 
 ### Phase 3 — Dashboard UX
 
-- [ ] Sticky header (badge, age, quote toggle, notional, gear) and a KPI tile row
-- [ ] Opportunities ranked globally by net spread, not one unordered card per symbol
-- [ ] Mirrored A→B / B→A routes collapsed by default, with a show-both toggle
-- [ ] Quick-filter chips: All (default) / Positive net / Above threshold
-- [ ] Magnitude-aware price precision, tabular figures, quote-aware currency labels, flash-on-change
-- [ ] Dark mode and density rendered across all components via a semantic token layer
-- [ ] Distinct loading / filtered-empty / no-data states, using Phase 1 coverage data
-- [ ] Accessibility pass: focus management in the drawer, `aria-live` on the badge only, responsive matrix
-- [ ] `OnPush` + stable track keys + `computed()` filter chain ahead of ~5× the row count
-- [ ] Indicative-comparison disclaimer on the dashboard (closes the open Sprint 2 item above)
+- [x] Sticky header (badge, age, quote toggle, notional, gear) and a KPI tile row
+- [x] Opportunities ranked globally by net spread, not one unordered card per symbol
+- [x] Mirrored A→B / B→A routes collapsed by default, with a show-both toggle
+- [x] Quick-filter chips: All (default) / Positive net / Above threshold
+- [x] Magnitude-aware price precision, tabular figures, quote-aware currency labels
+- [ ] Flash-on-change cell animation (CSS helper present; not wired per-cell yet)
+- [x] Dark mode and density rendered across all components via a semantic token layer
+- [x] Distinct loading / filtered-empty / no-data states, using Phase 1 coverage data
+- [x] Accessibility pass: focus management in the drawer, `aria-live` on the badge only, responsive matrix
+- [x] `OnPush` + stable track keys + `computed()` filter chain ahead of ~5× the row count
+- [x] Indicative-comparison disclaimer on the dashboard (closes the open Sprint 2 item above)
 
 ### Sprint 3 exit criteria
 
-SOL, XRP, DOGE and BNB stream live alongside BTC and ETH without raising per-venue request rate above
-the Sprint 1 budget; a settings panel can hide any venue or market with cards, matrix, status chips
-and LIVE badge all reflecting it consistently; the default view still shows everything.
+- [x] SOL, XRP, DOGE and BNB stream live alongside BTC and ETH without raising per-venue request rate above the Sprint 1 budget (~9 req/cycle post-batching)
+- [x] Settings panel can hide any venue or market with cards, matrix, status chips and LIVE badge all reflecting it consistently
+- [x] Default view shows everything
+
+See [SPRINT3-IMPLEMENTATION.md](./SPRINT3-IMPLEMENTATION.md) for probe notes, file map, and verification commands.
 
 ---
 
@@ -178,6 +181,10 @@ A new developer can clone, run `docker compose up --build`, and see live indicat
 - [x] Binance, Kraken, and Coinbase public integrations work
 - [x] Responses normalized through `ExchangeAdapter`
 - [x] `BTC/USD` and `ETH/USD` monitored as USD markets
+- [x] Sprint 3: SOL, XRP, DOGE (USD + USDT) and BNB/USDT added — 11 symbols total
+- [x] Five venues: Binance, Kraken, Coinbase, Bitget, KuCoin
+- [x] Batched ticker fetches; request rate documented in Architecture
+- [x] Dashboard settings (client-side) and ranked opportunity UI
 - [x] Prices refresh about every 3 seconds without overlapping cycles
 - [x] Full buy/sell matrix calculated each cycle
 - [x] Raw and net spreads calculated with one taker fee per exchange

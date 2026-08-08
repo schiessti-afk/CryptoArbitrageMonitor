@@ -204,13 +204,17 @@ Production image: `ng build` artifacts served by **Nginx** (not the Angular dev 
 
 ## Exchange API limits
 
-Documented for operators; V1 uses low-frequency polling (2 symbols × 3 venues ≈ 6 public calls per 3s cycle) and remains best-effort.
+Documented for operators; V1 uses low-frequency polling with batched venue requests (Sprint 3: 11 symbols, ~9 HTTP calls per 3s cycle) and remains best-effort.
 
-| Exchange | Public REST guidance (summary) | V1 posture |
+| Exchange | Public REST guidance (summary) | V1 posture (post-Sprint 3 batching) |
 |---|---|---|
-| **Binance** | Weight-based IP limits (commonly on the order of thousands of weight/minute; light ticker calls are low weight). `429` / `418` on abuse. | Parallel tickers; honor backoff on `429` |
-| **Kraken** | Counter-based limits; public calls increment a decaying counter (starter tier is relatively tight). | Prefer batched ticker requests where the API allows; backoff on rate errors |
-| **Coinbase** | Public REST often limited around **10 requests/sec/IP** (burst slightly higher depending on product). | Stay well under limit; backoff on `429` |
+| **Binance** | Weight-based IP limits (commonly on the order of thousands of weight/minute; light ticker calls are low weight). `429` / `418` on abuse. | **1 batched** `/api/v3/ticker/bookTicker` per cycle (~0.33 req/s) |
+| **Kraken** | Counter-based limits; public calls increment a decaying counter (starter tier is relatively tight). | **1 batched** `/0/public/Ticker?pair=…` per cycle (~0.33 req/s) |
+| **Coinbase** | Public REST often limited around **10 requests/sec/IP** (burst slightly higher depending on product). | **5** `/products/{id}/ticker` calls per cycle for USD symbols (~1.67 req/s) — no batch best-bid/ask |
+| **Bitget** | Public REST limits vary by endpoint; all-tickers is one call. | **1** `/api/v2/spot/market/tickers` per cycle (~0.33 req/s) |
+| **KuCoin** | Public REST limits vary; all-tickers is one call. | **1** `/api/v1/market/allTickers` per cycle (~0.33 req/s) |
+
+**Total:** ~9 requests / 3s ≈ **3 req/s** across five venues (down from ~12 req/s with per-symbol polling at 4 symbols).
 
 Always verify current vendor docs when changing poll interval or symbol count. Do not assume limits are static.
 

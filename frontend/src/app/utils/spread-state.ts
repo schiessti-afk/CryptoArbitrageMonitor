@@ -70,13 +70,24 @@ export function getStateClasses(state: SpreadState): Record<string, boolean> {
   }
 }
 
+export function getStateBackgroundClass(state: SpreadState): string {
+  switch (state) {
+    case 'POTENTIAL':
+      return 'bg-green-50 dark:bg-green-950';
+    case 'NO_OPPORTUNITY':
+      return 'bg-red-50 dark:bg-red-950';
+    case 'NEUTRAL':
+      return 'bg-gray-50 dark:bg-gray-900';
+  }
+}
+
 export function getStateTextClass(state: SpreadState): string {
   switch (state) {
     case 'POTENTIAL':
-      return 'text-green-700';
+      return 'text-green-700 dark:text-green-300';
     case 'NO_OPPORTUNITY':
-      return 'text-red-700';
+      return 'text-red-700 dark:text-red-300';
     case 'NEUTRAL':
-      return 'text-gray-700';
+      return 'text-gray-700 dark:text-gray-300';
   }
 }

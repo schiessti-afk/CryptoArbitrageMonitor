@@ -1,6 +1,9 @@
 package com.cryptoarbitrage.monitor.exchange;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Collection;
 
 /**
  * Contract for fetching normalized price tickers from an exchange.
@@ -40,4 +43,14 @@ public interface ExchangeAdapter {
      * @return Mono emitting a PriceTicker on success, empty on error or unsupported symbol
      */
     Mono<PriceTicker> getTicker(String internalSymbol);
+
+    /**
+     * Fetch tickers for multiple internal symbols in as few HTTP requests as the venue allows.
+     * Default fans out to {@link #getTicker(String)} per symbol (Coinbase path).
+     */
+    default Flux<PriceTicker> getTickers(Collection<String> internalSymbols) {
+        return Flux.fromIterable(internalSymbols)
+                .filter(this::supports)
+                .flatMap(this::getTicker);
+    }
 }

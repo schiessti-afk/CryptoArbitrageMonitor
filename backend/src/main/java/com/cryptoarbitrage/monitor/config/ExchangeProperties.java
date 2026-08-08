@@ -47,6 +47,25 @@ public class ExchangeProperties {
                 .collect(Collectors.toSet());
     }
 
+    /** How many configured venues list the given internal symbol. */
+    public int countVenuesForSymbol(String internalSymbol) {
+        int count = 0;
+        for (ExchangeConfig config : adapters.values()) {
+            if (config.getMarket(internalSymbol) != null) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Distinct internal symbols configured across all venues. */
+    public Set<String> getConfiguredSymbols() {
+        return adapters.values().stream()
+                .flatMap(config -> config.getMarkets().keySet().stream())
+                .map(key -> key.replace("_", "/"))
+                .collect(Collectors.toSet());
+    }
+
     public static class ExchangeConfig {
         private String baseUrl;
         private long connectTimeoutMs = 5000;

@@ -12,6 +12,7 @@ public record SpreadSnapshotDto(
         int freshExchangeCount,
         boolean live,
         Map<String, Boolean> liveByQuote,
-        Map<String, Integer> freshCountByQuote
+        Map<String, Integer> freshCountByQuote,
+        List<SymbolCoverageDto> coverage
 ) {
 }

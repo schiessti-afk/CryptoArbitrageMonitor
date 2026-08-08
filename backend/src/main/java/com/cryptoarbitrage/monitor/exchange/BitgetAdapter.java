@@ -8,10 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Bitget spot ticker. USDT-only for BTC/ETH — no BTC/USD or ETH/USD market exists
@@ -74,6 +77,108 @@ public class BitgetAdapter implements ExchangeAdapter {
                 });
     }
 
+    @Override
+    public Flux<PriceTicker> getTickers(Collection<String> internalSymbols) {
+        List<String> supported = internalSymbols.stream().filter(this::supports).toList();
+        if (supported.isEmpty()) {
+            return Flux.empty();
+        }
+
+        Map<String, ExchangeProperties.MarketConfig> marketByInternal = new LinkedHashMap<>();
+        Set<String> wantedNative = new HashSet<>();
+        for (String symbol : supported) {
+            ExchangeProperties.MarketConfig market = market(symbol);
+            marketByInternal.put(symbol, market);
+            wantedNative.add(market.getNativeSymbol());
+        }
+
+        return webClient.get()
+                .uri("/api/v2/spot/market/tickers")
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("Bitget: HTTP {} for batch tickers", response.statusCode().value());
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .flatMapMany(json -> parseBatchTickers(json, supported, marketByInternal, wantedNative))
+                .onErrorResume(e -> {
+                    log.warn("Bitget: batch ticker error: {}", e.getMessage());
+                    return Flux.empty();
+                });
+    }
+
+    private Flux<PriceTicker> parseBatchTickers(
+            JsonNode json,
+            List<String> supported,
+            Map<String, ExchangeProperties.MarketConfig> marketByInternal,
+            Set<String> wantedNative
+    ) {
+        JsonNode codeNode = json.get("code");
+        if (codeNode == null || !SUCCESS_CODE.equals(codeNode.asText())) {
+            String msg = json.has("msg") ? json.get("msg").asText() : "unknown error";
+            return Flux.error(new IllegalArgumentException("Bitget error: " + msg));
+        }
+
+        JsonNode data = json.get("data");
+        if (data == null || !data.isArray()) {
+            return Flux.error(new IllegalArgumentException("Bitget: missing or empty data array"));
+        }
+
+        Map<String, String> nativeToInternal = supported.stream()
+                .collect(Collectors.toMap(
+                        s -> marketByInternal.get(s).getNativeSymbol(),
+                        s -> s,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
+
+        Set<String> found = new HashSet<>();
+        List<PriceTicker> tickers = new ArrayList<>();
+        for (JsonNode node : data) {
+            String nativeSymbol = node.get("symbol").asText();
+            if (!wantedNative.contains(nativeSymbol)) {
+                continue;
+            }
+            String internal = nativeToInternal.get(nativeSymbol);
+            if (internal != null) {
+                found.add(internal);
+                tickers.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+            }
+        }
+
+        for (String symbol : supported) {
+            if (!found.contains(symbol)) {
+                log.warn("Bitget: symbol {} missing from batch response", symbol);
+            }
+        }
+
+        return Flux.fromIterable(tickers);
+    }
+
+    private PriceTicker parseTickerNode(
+            JsonNode ticker,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market
+    ) {
+        BigDecimal bid = new BigDecimal(ticker.get("bidPr").asText());
+        BigDecimal ask = new BigDecimal(ticker.get("askPr").asText());
+
+        if (bid.signum() <= 0 || ask.signum() <= 0) {
+            throw new IllegalArgumentException("Bitget: invalid bid/ask prices for " + internalSymbol);
+        }
+
+        return new PriceTicker(
+                Exchange.BITGET,
+                internalSymbol,
+                market.getNativeSymbol(),
+                market.getQuoteAsset(),
+                bid,
+                ask,
+                Instant.now()
+        );
+    }
+
     private ExchangeProperties.MarketConfig market(String internalSymbol) {
         ExchangeProperties.ExchangeConfig config = exchangeProperties.getAdapters().get("bitget");
         if (config == null) {
@@ -111,21 +216,6 @@ public class BitgetAdapter implements ExchangeAdapter {
         }
 
         JsonNode ticker = data.get(0);
-        BigDecimal bid = new BigDecimal(ticker.get("bidPr").asText());
-        BigDecimal ask = new BigDecimal(ticker.get("askPr").asText());
-
-        if (bid.signum() <= 0 || ask.signum() <= 0) {
-            throw new IllegalArgumentException("Bitget: invalid bid/ask prices");
-        }
-
-        return new PriceTicker(
-                Exchange.BITGET,
-                internalSymbol,
-                market.getNativeSymbol(),
-                market.getQuoteAsset(),
-                bid,
-                ask,
-                Instant.now()
-        );
+        return parseTickerNode(ticker, internalSymbol, market);
     }
 }

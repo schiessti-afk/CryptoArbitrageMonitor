@@ -25,6 +25,13 @@ export interface ExchangeStatus {
   offeredQuoteAssets: string[];
 }
 
+export interface SymbolCoverage {
+  symbol: string;
+  quoteAsset: string;
+  configuredVenues: number;
+  freshVenues: number;
+}
+
 export interface SpreadSnapshot {
   calculatedAt: string;
   matrix: SpreadOpportunity[];
@@ -37,6 +44,7 @@ export interface SpreadSnapshot {
    *  versa — this is what the global `live` field above cannot express. */
   liveByQuote: Record<string, boolean>;
   freshCountByQuote: Record<string, number>;
+  coverage?: SymbolCoverage[];
 }
 
 export interface Pair {

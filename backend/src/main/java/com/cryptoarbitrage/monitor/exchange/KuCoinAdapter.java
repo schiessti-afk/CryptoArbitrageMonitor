@@ -8,10 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * KuCoin level-1 orderbook ticker. USDT-only for BTC/ETH — no BTC/USD or ETH/USD market exists.
@@ -74,6 +77,113 @@ public class KuCoinAdapter implements ExchangeAdapter {
                     log.warn("KuCoin: error fetching {}: {}", internalSymbol, e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    @Override
+    public Flux<PriceTicker> getTickers(Collection<String> internalSymbols) {
+        List<String> supported = internalSymbols.stream().filter(this::supports).toList();
+        if (supported.isEmpty()) {
+            return Flux.empty();
+        }
+
+        Map<String, ExchangeProperties.MarketConfig> marketByInternal = new LinkedHashMap<>();
+        Set<String> wantedNative = new HashSet<>();
+        for (String symbol : supported) {
+            ExchangeProperties.MarketConfig market = market(symbol);
+            marketByInternal.put(symbol, market);
+            wantedNative.add(market.getNativeSymbol());
+        }
+
+        return webClient.get()
+                .uri("/api/v1/market/allTickers")
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("KuCoin: HTTP {} for batch tickers", response.statusCode().value());
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .flatMapMany(json -> parseBatchTickers(json, supported, marketByInternal, wantedNative))
+                .onErrorResume(e -> {
+                    log.warn("KuCoin: batch ticker error: {}", e.getMessage());
+                    return Flux.empty();
+                });
+    }
+
+    private Flux<PriceTicker> parseBatchTickers(
+            JsonNode json,
+            List<String> supported,
+            Map<String, ExchangeProperties.MarketConfig> marketByInternal,
+            Set<String> wantedNative
+    ) {
+        JsonNode dataWrapper = json.get("data");
+        if (dataWrapper == null || dataWrapper.isNull() || dataWrapper.isMissingNode()) {
+            return Flux.error(new IllegalArgumentException("KuCoin: no data in allTickers response"));
+        }
+
+        JsonNode tickers = dataWrapper.get("ticker");
+        if (tickers == null || !tickers.isArray()) {
+            return Flux.error(new IllegalArgumentException("KuCoin: missing ticker array"));
+        }
+
+        Map<String, String> nativeToInternal = supported.stream()
+                .collect(Collectors.toMap(
+                        s -> marketByInternal.get(s).getNativeSymbol(),
+                        s -> s,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
+
+        Set<String> found = new HashSet<>();
+        List<PriceTicker> results = new ArrayList<>();
+        for (JsonNode node : tickers) {
+            String nativeSymbol = node.get("symbol").asText();
+            if (!wantedNative.contains(nativeSymbol)) {
+                continue;
+            }
+            String internal = nativeToInternal.get(nativeSymbol);
+            if (internal != null) {
+                found.add(internal);
+                results.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+            }
+        }
+
+        for (String symbol : supported) {
+            if (!found.contains(symbol)) {
+                log.warn("KuCoin: symbol {} missing from batch response", symbol);
+            }
+        }
+
+        return Flux.fromIterable(results);
+    }
+
+    private PriceTicker parseTickerNode(
+            JsonNode data,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market
+    ) {
+        JsonNode bestBid = data.get("buy");
+        JsonNode bestAsk = data.get("sell");
+        if (bestBid == null || bestBid.isNull() || bestAsk == null || bestAsk.isNull()) {
+            throw new IllegalArgumentException("KuCoin: missing buy/sell for " + internalSymbol);
+        }
+
+        BigDecimal bid = new BigDecimal(bestBid.asText());
+        BigDecimal ask = new BigDecimal(bestAsk.asText());
+
+        if (bid.signum() <= 0 || ask.signum() <= 0) {
+            throw new IllegalArgumentException("KuCoin: invalid bid/ask prices for " + internalSymbol);
+        }
+
+        return new PriceTicker(
+                Exchange.KUCOIN,
+                internalSymbol,
+                market.getNativeSymbol(),
+                market.getQuoteAsset(),
+                bid,
+                ask,
+                Instant.now()
+        );
     }
 
     private ExchangeProperties.MarketConfig market(String internalSymbol) {

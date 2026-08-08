@@ -1,38 +1,53 @@
-<div class="overflow-x-auto">
-  <h2 class="text-lg font-bold mb-4">Full Matrix</h2>
-  @if (matrix().length === 0) {
-    <p class="text-gray-500 text-sm">No data yet</p>
-  }
-
-  @for (group of groupedMatrix(); track group.symbol) {
-    <div class="mb-6">
-      <h3 class="text-md font-semibold mb-2 text-gray-700">{{ group.symbol }}</h3>
-      <table class="w-full text-xs border-collapse">
-        <thead>
-          <tr class="bg-gray-200">
-            <th class="border p-2 text-left">Buy</th>
-            <th class="border p-2 text-left">Sell</th>
-            <th class="border p-2 text-right">Buy $</th>
-            <th class="border p-2 text-right">Sell $</th>
-            <th class="border p-2 text-right">Raw %</th>
-            <th class="border p-2 text-right">Fees %</th>
-            <th class="border p-2 text-right">Net %</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of group.rows; track row.buyExchange + row.sellExchange) {
-            <tr [ngClass]="getStateBackgroundClass(row.netSpreadPercent)">
-              <td class="border p-2">{{ row.buyExchange }}</td>
-              <td class="border p-2">{{ row.sellExchange }}</td>
-              <td class="border p-2 text-right font-mono">{{ row.buyPrice | number:'1.2-4' }}</td>
-              <td class="border p-2 text-right font-mono">{{ row.sellPrice | number:'1.2-4' }}</td>
-              <td class="border p-2 text-right">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
-              <td class="border p-2 text-right text-gray-600">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
-              <td class="border p-2 text-right font-bold">{{ row.netSpreadPercent | number:'1.2-4' }}%</td>
+@if (loading()) {
+  <div class="space-y-3" aria-busy="true">
+    @for (i of [1,2,3]; track i) {
+      <div class="skeleton h-24 rounded"></div>
+    }
+  </div>
+} @else if (filteredEmpty()) {
+  <div class="empty-state">
+    <p>No matrix rows match the current filters.</p>
+    <button type="button" class="btn-secondary mt-2" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else if (matrix().length === 0) {
+  <div class="empty-state">
+    <p>No matrix data yet for {{ quoteAsset() }} markets.</p>
+  </div>
+} @else {
+  <div class="overflow-x-auto">
+    @for (group of groupedMatrix(); track group.symbol) {
+      <div class="mb-6">
+        <h3 class="font-semibold mb-2">{{ group.symbol }}</h3>
+        @if (coverageMessage(group.symbol); as msg) {
+          <p class="text-xs text-amber-700 dark:text-amber-300 mb-2">{{ msg }}</p>
+        }
+        <table class="w-full border-collapse min-w-[640px]">
+          <thead>
+            <tr class="bg-muted-row">
+              <th class="border border-theme text-left sticky left-0 bg-muted-row z-10" [class]="cellPadding()">Buy</th>
+              <th class="border border-theme text-left" [class]="cellPadding()">Sell</th>
+              <th class="border border-theme text-right" [class]="cellPadding()">Buy {{ quoteAsset() }}</th>
+              <th class="border border-theme text-right" [class]="cellPadding()">Sell {{ quoteAsset() }}</th>
+              <th class="border border-theme text-right" [class]="cellPadding()">Raw %</th>
+              <th class="border border-theme text-right" [class]="cellPadding()">Fees %</th>
+              <th class="border border-theme text-right" [class]="cellPadding()">Net %</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-</div>
+          </thead>
+          <tbody>
+            @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
+              <tr [class]="getRowClass(row.netSpreadPercent)">
+                <td class="border border-theme sticky left-0 bg-inherit z-10" [class]="cellPadding()">{{ row.buyExchange }}</td>
+                <td class="border border-theme" [class]="cellPadding()">{{ row.sellExchange }}</td>
+                <td class="border border-theme text-right font-mono tabular-nums" [class]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
+                <td class="border border-theme text-right font-mono tabular-nums" [class]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
+                <td class="border border-theme text-right tabular-nums" [class]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
+                <td class="border border-theme text-right text-muted tabular-nums" [class]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
+                <td class="border border-theme text-right font-bold tabular-nums" [class]="cellPadding()">{{ formatNet(row.netSpreadPercent) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}

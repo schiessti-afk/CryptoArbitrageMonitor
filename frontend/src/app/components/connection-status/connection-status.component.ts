@@ -1,7 +1,17 @@
-import { Component, signal, effect, OnInit, OnDestroy, NgZone } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  input,
+  OnDestroy,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WebsocketService } from '../../services/websocket.service';
 import { QuoteAssetService } from '../../services/quote-asset.service';
+import { SettingsService } from '../../services/settings.service';
+import { computeVisibleLive } from '../../utils/dashboard-filter';
 
 type ConnectionBadge = 'LIVE' | 'DEGRADED' | 'STALE';
 
@@ -9,25 +19,27 @@ type ConnectionBadge = 'LIVE' | 'DEGRADED' | 'STALE';
   selector: 'app-connection-status',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './connection-status.component.html',
-  styles: []
 })
 export class ConnectionStatusComponent implements OnInit, OnDestroy {
-  now = signal(Date.now());
+  freshnessWindowMs = input(10000);
+  nowMs = input(Date.now());
+
   lastMessageAge = signal('—');
   badge = signal<ConnectionBadge>('STALE');
-
-  private tickerInterval: any;
 
   constructor(
     public websocket: WebsocketService,
     public quoteAsset: QuoteAssetService,
-    private ngZone: NgZone
+    public settings: SettingsService,
   ) {
     effect(() => {
       const snap = this.websocket.snapshot();
-      const currentNow = this.now();
+      const currentNow = this.nowMs();
       const selectedQuote = this.quoteAsset.selected();
+      const settings = this.settings.settings();
+      const freshnessWindow = this.freshnessWindowMs();
 
       if (!snap) {
         this.lastMessageAge.set('—');
@@ -37,61 +49,61 @@ export class ConnectionStatusComponent implements OnInit, OnDestroy {
 
       const receivedAtMs = new Date(snap.calculatedAt).getTime();
       const ageSeconds = (currentNow - receivedAtMs) / 1000;
+      const ageLabel = `Updated ${Math.floor(ageSeconds)}s ago`;
+      this.lastMessageAge.set(ageLabel);
 
-      // liveByQuote reflects only the venues relevant to the selected quote asset — a USD outage
-      // must not read as DEGRADED while looking at USDT, and vice versa.
-      const liveForSelectedQuote = snap.liveByQuote?.[selectedQuote] ?? snap.live;
+      const fallbackLive = snap.liveByQuote?.[selectedQuote] ?? snap.live;
+      const liveForSelectedQuote = computeVisibleLive(
+        snap.exchanges ?? [],
+        selectedQuote,
+        settings,
+        fallbackLive,
+        freshnessWindow,
+        currentNow
+      );
 
-      if (ageSeconds > 10) {
-        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
+      if (ageSeconds > freshnessWindow / 1000) {
         this.badge.set('STALE');
       } else if (!liveForSelectedQuote) {
-        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
         this.badge.set('DEGRADED');
       } else {
-        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
         this.badge.set('LIVE');
       }
     });
   }
 
-  ngOnInit() {
-    this.ngZone.runOutsideAngular(() => {
-      this.tickerInterval = setInterval(() => {
-        this.ngZone.run(() => {
-          this.now.set(Date.now());
-        });
-      }, 1000);
-    });
-  }
+  ngOnInit() {}
 
-  ngOnDestroy() {
-    if (this.tickerInterval) {
-      clearInterval(this.tickerInterval);
-    }
-  }
+  ngOnDestroy() {}
 
   snapshot() {
     return this.websocket.snapshot();
   }
 
-  // Only venues that actually list the selected quote asset are shown — a venue that simply
-  // doesn't offer USD (e.g. Bitget, KuCoin) must never render as if it had failed to report one.
   visibleExchanges() {
     const selected = this.quoteAsset.selected();
+    const disabled = new Set(this.settings.settings().disabledExchanges);
     return (this.snapshot()?.exchanges ?? []).filter(ex =>
       ex.offeredQuoteAssets?.includes(selected)
+    );
+  }
+
+  hiddenExchanges() {
+    const selected = this.quoteAsset.selected();
+    const disabled = new Set(this.settings.settings().disabledExchanges);
+    return (this.snapshot()?.exchanges ?? []).filter(ex =>
+      ex.offeredQuoteAssets?.includes(selected) && disabled.has(ex.exchange)
     );
   }
 
   getExchangeClass(freshness: string): string {
     switch (freshness) {
       case 'FRESH':
-        return 'bg-green-100 text-green-800';
+        return 'chip chip-fresh';
       case 'STALE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'chip chip-stale';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'chip chip-never';
     }
   }
 

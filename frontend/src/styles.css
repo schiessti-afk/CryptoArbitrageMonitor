@@ -1,3 +1,158 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    --page-bg: #f9fafb;
+    --panel-bg: #ffffff;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --muted-row: #f3f4f6;
+    --link: #2563eb;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --page-bg: #0f172a;
+    --panel-bg: #1e293b;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --muted-row: #1e293b;
+    --link: #60a5fa;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      color-scheme: dark;
+      --page-bg: #0f172a;
+      --panel-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --muted-row: #1e293b;
+      --link: #60a5fa;
+    }
+  }
+
+  html, body {
+    @apply antialiased;
+    background: var(--page-bg);
+    color: var(--text);
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .bg-page { background-color: var(--page-bg); }
+  .panel { background-color: var(--panel-bg); color: var(--text); }
+  .text-muted { color: var(--text-muted); }
+  .border-theme { border-color: var(--border); }
+  .bg-muted-row { background-color: var(--muted-row); }
+  .text-link { color: var(--link); }
+
+  .input {
+    @apply rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
+    background: var(--panel-bg);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply rounded px-3 py-2 border hover:opacity-90;
+    border-color: var(--border);
+    background: var(--panel-bg);
+  }
+
+  .btn-ghost {
+    @apply text-gray-700 dark:text-gray-200 hover:opacity-90;
+  }
+
+  .btn-icon {
+    @apply rounded p-2 border text-lg leading-none focus:outline-none focus:ring-2 focus:ring-blue-500;
+    border-color: var(--border);
+    background: var(--panel-bg);
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .kpi-tile {
+    @apply panel rounded-lg border p-4;
+    border-color: var(--border);
+  }
+
+  .kpi-label {
+    @apply text-xs uppercase tracking-wide text-muted mb-1;
+  }
+
+  .kpi-value {
+    @apply text-xl font-bold;
+  }
+
+  .chip {
+    @apply rounded-full px-3 py-1 text-xs font-semibold border;
+    border-color: var(--border);
+    min-height: 32px;
+  }
+
+  .chip-active {
+    @apply bg-blue-600 text-white border-blue-600;
+  }
+
+  .chip-muted {
+    @apply bg-muted-row;
+  }
+
+  .chip-fresh {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .chip-stale {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .chip-never {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200;
+  }
+
+  .chip-hidden {
+    @apply opacity-60 line-through;
+  }
+
+  .alert-warning {
+    @apply rounded-lg border border-amber-300 bg-amber-50 text-amber-900 p-4 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-700;
+  }
+
+  .empty-state {
+    @apply text-center py-8 text-muted;
+  }
+
+  .skeleton {
+    @apply animate-pulse bg-gray-200 dark:bg-gray-700;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .flash-change {
+      animation: flash-pulse 0.6s ease-out;
+    }
+  }
+
+  @keyframes flash-pulse {
+    0% { background-color: rgba(59, 130, 246, 0.25); }
+    100% { background-color: transparent; }
+  }
+}

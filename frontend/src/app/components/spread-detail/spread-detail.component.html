@@ -1,39 +1,66 @@
-<div>
-  <h2 class="text-lg font-bold mb-4">Best Current Spreads</h2>
-  @if (opportunities.length === 0) {
-    <p class="text-gray-500">Waiting for data...</p>
-  }
-  <div class="space-y-4">
-    @for (opp of opportunities; track opp.symbol) {
-      <div [ngClass]="getClasses(opp.netSpreadPercent)">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-lg font-bold">{{ opp.symbol }}</h3>
-          <span class="text-2xl">{{ getEmoji(opp.netSpreadPercent) }}</span>
-        </div>
-
-        <div class="text-sm font-semibold mb-3" [ngClass]="getTextClass(opp.netSpreadPercent)">
-          {{ getLabel(opp.netSpreadPercent) }}
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 text-sm mb-3">
-          <div>
-            <p class="text-gray-600">Buy on: {{ opp.buyExchange }}</p>
-            <p class="font-mono text-lg">{{ opp.buyPrice | number:'1.2-8' }}</p>
-          </div>
-          <div>
-            <p class="text-gray-600">Sell on: {{ opp.sellExchange }}</p>
-            <p class="font-mono text-lg">{{ opp.sellPrice | number:'1.2-8' }}</p>
-          </div>
-        </div>
-
-        <div class="border-t pt-3">
-          <p class="text-sm text-gray-600">Raw Spread: {{ opp.rawSpreadPercent | number:'1.4-4' }}%</p>
-          <p class="text-xl font-bold"
-             [ngClass]="estimatedProfit(opp) < 0 ? 'text-red-600' : (estimatedProfit(opp) > 0 ? 'text-green-600' : 'text-gray-600')">
-            Estimated profit: ${{ estimatedProfit(opp) | number:'1.2-2' }}
-          </p>
-        </div>
-      </div>
+@if (loading()) {
+  <div class="space-y-2" aria-busy="true">
+    @for (i of [1,2,3,4]; track i) {
+      <div class="skeleton h-12 rounded"></div>
     }
   </div>
-</div>
+} @else if (filteredEmpty()) {
+  <div class="empty-state">
+    <p>No opportunities match the current filters.</p>
+    <button type="button" class="btn-secondary mt-2" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else if (opportunities().length === 0) {
+  <div class="empty-state">
+    <p>No spread data yet for {{ quoteAsset() }} markets.</p>
+  </div>
+} @else {
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="bg-muted-row text-left">
+          <th class="p-2 border border-theme">Symbol</th>
+          <th class="p-2 border border-theme">Route</th>
+          <th class="p-2 border border-theme text-right">Net %</th>
+          <th class="p-2 border border-theme text-right">Est. profit</th>
+          <th class="p-2 border border-theme text-right">Age</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (opp of opportunities(); track opp.symbol + opp.buyExchange + opp.sellExchange) {
+          <tr [ngClass]="getClasses(opp.netSpreadPercent)" class="border border-theme">
+            <td class="p-2 font-semibold tabular-nums">{{ opp.symbol }}</td>
+            <td class="p-2">
+              <span class="font-medium">{{ opp.buyExchange }}</span>
+              <span class="text-muted mx-1">→</span>
+              <span class="font-medium">{{ opp.sellExchange }}</span>
+              <div class="text-xs text-muted tabular-nums">
+                {{ opp.buyPrice | number:priceFormat(opp.buyPrice) }} → {{ opp.sellPrice | number:priceFormat(opp.sellPrice) }}
+              </div>
+            </td>
+            <td class="p-2 text-right font-bold tabular-nums" [ngClass]="getTextClass(opp.netSpreadPercent)">
+              {{ formatPercent(opp.netSpreadPercent) }}
+            </td>
+            <td class="p-2 text-right tabular-nums"
+                [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees and fill depth.'">
+              {{ formatProfitValue(opp) }}
+            </td>
+            <td class="p-2 text-right text-muted text-xs tabular-nums">
+              @if (opp.calculatedAt) {
+                live
+              } @else {
+                —
+              }
+            </td>
+          </tr>
+          @if (coverageMessage(opp.symbol); as msg) {
+            <tr>
+              <td colspan="5" class="p-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-200 border border-theme">
+                {{ msg }}
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+}

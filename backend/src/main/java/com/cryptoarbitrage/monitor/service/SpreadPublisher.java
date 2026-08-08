@@ -5,6 +5,7 @@ import com.cryptoarbitrage.monitor.config.ExchangeProperties;
 import com.cryptoarbitrage.monitor.dto.ExchangeStatusDto;
 import com.cryptoarbitrage.monitor.dto.SpreadDto;
 import com.cryptoarbitrage.monitor.dto.SpreadSnapshotDto;
+import com.cryptoarbitrage.monitor.dto.SymbolCoverageDto;
 import com.cryptoarbitrage.monitor.exchange.Exchange;
 import com.cryptoarbitrage.monitor.model.TrackedPair;
 import com.cryptoarbitrage.monitor.repository.TrackedPairRepository;
@@ -89,6 +90,19 @@ public class SpreadPublisher {
                 ))
                 .toList();
 
+        List<SymbolCoverageDto> coverage = trackedPairRepository.findByActiveTrue().stream()
+                .map(pair -> {
+                    String symbol = pair.getSymbol();
+                    return new SymbolCoverageDto(
+                            symbol,
+                            pair.getQuoteCurrency(),
+                            exchangeProperties.countVenuesForSymbol(symbol),
+                            availabilityStore.countFreshForSymbol(symbol, freshnessWindowMs)
+                    );
+                })
+                .sorted(Comparator.comparing(SymbolCoverageDto::symbol))
+                .toList();
+
         SpreadSnapshotDto snapshot = new SpreadSnapshotDto(
                 calculatedAt,
                 result.fullMatrix.stream()
@@ -101,7 +115,8 @@ public class SpreadPublisher {
                 freshCount,
                 live,
                 liveByQuote,
-                freshCountByQuote
+                freshCountByQuote,
+                coverage
         );
 
         try {

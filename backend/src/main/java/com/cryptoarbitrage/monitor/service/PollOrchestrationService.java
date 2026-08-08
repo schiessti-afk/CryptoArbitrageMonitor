@@ -134,36 +134,37 @@ public class PollOrchestrationService {
     }
 
     /**
-     * Fetches every (symbol, adapter) combination in one flattened Flux. Adapters that don't
+     * Fetches tickers per adapter using batch endpoints where available. Adapters that don't
      * offer a given symbol (see {@link ExchangeAdapter#supports}) are skipped before any HTTP
-     * call is made — an unlisted market never produces a request, an availability-store update,
-     * or a log line.
+     * call is made.
      */
     private Map<String, List<PriceTicker>> fetchTickersInParallel(List<TrackedPair> activePairs) {
-        List<Mono<PriceTicker>> requests = new ArrayList<>();
+        List<String> symbols = activePairs.stream().map(TrackedPair::getSymbol).toList();
 
-        for (TrackedPair pair : activePairs) {
-            String symbol = pair.getSymbol();
-            for (ExchangeAdapter adapter : adapters) {
-                if (!adapter.supports(symbol)) {
-                    continue;
-                }
-                requests.add(
-                        adapter.getTicker(symbol)
-                                .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange(), symbol))
-                                .onErrorResume(e -> {
-                                    log.warn("Adapter {} failed for {}: {}",
-                                            adapter.getExchange(), symbol, e.getMessage());
-                                    return Mono.empty();
-                                })
-                );
+        List<Mono<List<PriceTicker>>> adapterRequests = new ArrayList<>();
+        for (ExchangeAdapter adapter : adapters) {
+            List<String> supported = symbols.stream().filter(adapter::supports).toList();
+            if (supported.isEmpty()) {
+                continue;
             }
+            adapterRequests.add(
+                    adapter.getTickers(supported)
+                            .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange(), ticker.symbol()))
+                            .onErrorContinue((e, obj) -> log.warn("Adapter {} ticker error: {}",
+                                    adapter.getExchange(), e.getMessage()))
+                            .collectList()
+                            .onErrorResume(e -> {
+                                log.warn("Adapter {} batch failed: {}", adapter.getExchange(), e.getMessage());
+                                return Mono.just(List.of());
+                            })
+            );
         }
 
-        List<PriceTicker> allTickers = Flux.fromIterable(requests)
+        List<PriceTicker> allTickers = Flux.fromIterable(adapterRequests)
                 .flatMap(mono -> mono)
+                .flatMapIterable(list -> list)
                 .collectList()
-                .block(); // Blocking call acceptable here; it's the poll cycle's outermost level
+                .block();
 
         Map<String, List<PriceTicker>> bySymbol = new HashMap<>();
         if (allTickers != null) {

@@ -1,20 +1,39 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { WebsocketService } from '../../services/websocket.service';
 import { QuoteAssetService } from '../../services/quote-asset.service';
+import { SettingsService } from '../../services/settings.service';
 import { SpreadDetailComponent } from '../spread-detail/spread-detail.component';
 import { SpreadTableComponent } from '../spread-table/spread-table.component';
 import { ConnectionStatusComponent } from '../connection-status/connection-status.component';
+import { SettingsDrawerComponent } from '../settings-drawer/settings-drawer.component';
 import { AppConfig } from '../../models/spread.model';
+import {
+  OpportunityQuickFilter,
+  buildRankedOpportunities,
+  collapseMirroredRoutes,
+  countVisibleFreshExchanges,
+  describeFilterChips,
+  filterMatrixBySettings,
+  getCoverageForQuote,
+  matchesQuoteAsset,
+} from '../../utils/dashboard-filter';
 
 const DEFAULT_CONFIG: AppConfig = {
   defaultNotional: 1000,
   freshnessWindowMs: 10000,
   neutralEpsilonPercent: 0.001,
   fees: [],
-  quoteAssets: ['USD', 'USDT']
+  quoteAssets: ['USD', 'USDT'],
 };
 
 @Component({
@@ -25,47 +44,126 @@ const DEFAULT_CONFIG: AppConfig = {
     FormsModule,
     SpreadDetailComponent,
     SpreadTableComponent,
-    ConnectionStatusComponent
+    ConnectionStatusComponent,
+    SettingsDrawerComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.component.html',
-  styles: []
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   notional = signal(1000);
   config = signal<AppConfig>(DEFAULT_CONFIG);
+  settingsOpen = signal(false);
+  quickFilter = signal<OpportunityQuickFilter>('all');
+  showBothDirections = signal(false);
+  now = signal(Date.now());
 
-  // A symbol's quote asset is its suffix ("BTC/USDT" -> "USDT"); filtering this way needs no
-  // extra round-trip and matches exactly what the backend uses to group tracked pairs.
-  private matchesSelectedQuote = (symbol: string) =>
-    symbol.endsWith('/' + this.quoteAsset.selected());
+  private tickerInterval: ReturnType<typeof setInterval> | undefined;
 
-  opportunities = computed(() =>
-    (this.websocket.snapshot()?.bestPerSymbol ?? []).filter(o => this.matchesSelectedQuote(o.symbol))
-  );
-  matrix = computed(() =>
-    (this.websocket.snapshot()?.matrix ?? []).filter(o => this.matchesSelectedQuote(o.symbol))
-  );
-
-  // Data-driven venue list for the header tooltip — built from whatever native symbols are
-  // actually present in the current (filtered) matrix, so it never hardcodes a market string
-  // that would be wrong under the other quote asset.
-  venueSummary = computed(() => {
-    const seen = new Map<string, string>();
-    for (const row of this.matrix()) {
-      if (row.buyNativeSymbol) seen.set(row.buyExchange, row.buyNativeSymbol);
-      if (row.sellNativeSymbol) seen.set(row.sellExchange, row.sellNativeSymbol);
-    }
-    return Array.from(seen.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([exchange, native]) => `${exchange} ${native}`)
-      .join(', ');
+  private quoteFilteredMatrix = computed(() => {
+    const snap = this.websocket.snapshot();
+    const quote = this.quoteAsset.selected();
+    return (snap?.matrix ?? []).filter(o => matchesQuoteAsset(o.symbol, quote));
   });
+
+  private quoteFilteredBest = computed(() => {
+    const snap = this.websocket.snapshot();
+    const quote = this.quoteAsset.selected();
+    return (snap?.bestPerSymbol ?? []).filter(o => matchesQuoteAsset(o.symbol, quote));
+  });
+
+  visibleMatrix = computed(() => {
+    const settings = this.settings.settings();
+    return filterMatrixBySettings(this.quoteFilteredMatrix(), settings);
+  });
+
+  displayMatrix = computed(() => {
+    const rows = this.visibleMatrix();
+    return this.showBothDirections() ? rows : collapseMirroredRoutes(rows);
+  });
+
+  rankedOpportunities = computed(() =>
+    buildRankedOpportunities(
+      this.quoteFilteredBest(),
+      this.visibleMatrix(),
+      this.settings.settings(),
+      this.quickFilter()
+    )
+  );
+
+  filterChips = computed(() => describeFilterChips(this.settings.settings()));
+
+  totalRoutes = computed(() => this.quoteFilteredMatrix().length);
+  visibleRouteCount = computed(() => this.visibleMatrix().length);
+
+  kpiBestSpread = computed(() => {
+    const opps = this.rankedOpportunities();
+    if (opps.length === 0) return null;
+    return opps[0].netSpreadPercent;
+  });
+
+  kpiPositiveRoutes = computed(() =>
+    this.visibleMatrix().filter(r => r.netSpreadPercent > 0.001).length
+  );
+
+  kpiVenueCounts = computed(() => {
+    const snap = this.websocket.snapshot();
+    const freshnessWindow =
+      this.settings.settings().freshnessWindowMsOverride ?? this.config().freshnessWindowMs;
+    return countVisibleFreshExchanges(
+      snap?.exchanges ?? [],
+      this.quoteAsset.selected(),
+      this.settings.settings(),
+      freshnessWindow,
+      this.now()
+    );
+  });
+
+  kpiSymbolsCovered = computed(() => {
+    const coverage = getCoverageForQuote(
+      this.websocket.snapshot()?.coverage,
+      this.quoteAsset.selected()
+    );
+    return {
+      withSpread: this.rankedOpportunities().length,
+      tracked: coverage.length,
+      thin: coverage.filter(c => c.freshVenues < 2).length,
+    };
+  });
+
+  trackedSymbols = computed(() => {
+    const coverage = this.websocket.snapshot()?.coverage ?? [];
+    return coverage.map(c => c.symbol).sort();
+  });
+
+  coverageForQuote = computed(() =>
+    getCoverageForQuote(this.websocket.snapshot()?.coverage, this.quoteAsset.selected())
+  );
+
+  tooFewVenues = computed(() => this.kpiVenueCounts().fresh < 2);
+
+  allSymbolsHidden = computed(() => {
+    const settings = this.settings.settings();
+    const symbols = this.trackedSymbols().filter(s =>
+      matchesQuoteAsset(s, this.quoteAsset.selected())
+    );
+    return symbols.length > 0 && symbols.every(s => settings.disabledSymbols.includes(s));
+  });
+
+  hasActiveFilters = computed(() => this.filterChips().length > 0);
+
+  freshnessWindowMs = computed(
+    () => this.settings.settings().freshnessWindowMsOverride ?? this.config().freshnessWindowMs
+  );
+
+  density = computed(() => this.settings.settings().density);
 
   quickSelectAmounts = [100, 1000, 5000, 10000, 50000];
 
   constructor(
     public websocket: WebsocketService,
     public quoteAsset: QuoteAssetService,
+    public settings: SettingsService,
     private http: HttpClient
   ) {}
 
@@ -73,20 +171,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.http.get<AppConfig>('/api/config').subscribe({
       next: cfg => {
         this.config.set(cfg);
-        if (cfg.defaultNotional) {
-          this.notional.set(cfg.defaultNotional);
-        }
+        const override = this.settings.settings().defaultNotionalOverride;
+        this.notional.set(override ?? cfg.defaultNotional ?? 1000);
       },
-      error: error => {
-        console.warn('Failed to fetch config, using defaults:', error);
-        this.config.set(DEFAULT_CONFIG);
-      }
+      error: () => this.config.set(DEFAULT_CONFIG),
     });
     this.websocket.connect();
+    this.tickerInterval = setInterval(() => this.now.set(Date.now()), 1000);
   }
 
   ngOnDestroy() {
     this.websocket.disconnect();
+    if (this.tickerInterval) clearInterval(this.tickerInterval);
   }
 
   setNotional(amount: number) {
@@ -95,5 +191,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   selectQuoteAsset(quoteAsset: string) {
     this.quoteAsset.select(quoteAsset);
+  }
+
+  openSettings(trigger: HTMLButtonElement) {
+    this.settingsOpen.set(true);
+    setTimeout(() => trigger.focus(), 0);
+  }
+
+  closeSettings() {
+    this.settingsOpen.set(false);
+  }
+
+  setQuickFilter(filter: OpportunityQuickFilter) {
+    this.quickFilter.set(filter);
   }
 }
