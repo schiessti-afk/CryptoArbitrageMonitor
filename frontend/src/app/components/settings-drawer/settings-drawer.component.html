@@ -92,13 +92,22 @@
         <section>
           <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Appearance</h3>
           <label class="block text-sm mb-1">Theme</label>
-          <select class="input w-full mb-3"
+          <select class="input w-full"
                   [ngModel]="settings.settings().theme"
                   (ngModelChange)="patch({ theme: $event })">
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="system">System</option>
           </select>
+          <p class="text-xs text-muted mt-1 mb-3">
+            @if (settings.settings().theme === 'system') {
+              Follows OS — soft {{ systemPrefersLight() ? 'light' : 'dark' }} (distinct from forced Light).
+            } @else if (settings.settings().theme === 'light') {
+              Bright white panels with cool blue accents.
+            } @else {
+              Deep navy with emerald accents.
+            }
+          </p>
           <label class="block text-sm mb-1">Density</label>
           <select class="input w-full"
                   [ngModel]="settings.settings().density"
@@ -106,6 +115,11 @@
             <option value="comfortable">Comfortable</option>
             <option value="compact">Compact</option>
           </select>
+          <p class="text-xs text-muted mt-1">
+            {{ settings.settings().density === 'compact'
+              ? 'Tighter rows, chips, KPIs, and header.'
+              : 'Roomier spacing across tables and panels.' }}
+          </p>
         </section>
 
         <section>

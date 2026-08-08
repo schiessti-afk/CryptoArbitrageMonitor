@@ -169,8 +169,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     () => this.settings.settings().freshnessWindowMsOverride ?? this.config().freshnessWindowMs
   );
 
-  density = computed(() => this.settings.settings().density);
-
   quoteAssetsOrdered = computed(() => {
     const available = new Set(this.config().quoteAssets);
     return ['USDT', 'USD'].filter(q => available.has(q));

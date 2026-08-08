@@ -40,6 +40,43 @@ This application does **not** execute trades. Displayed values are **indicative 
 
 Java package root: `com.cryptoarbitrage.monitor`
 
+## Architecture
+
+High-level data path from public venues to dashboard and history:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           Exchange APIs                                  │
+│         Binance · Kraken · Coinbase · Bitget · KuCoin (public)           │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │
+                                v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        WebSocket Ingestion                               │
+│              Live market-data intake (adapters / poll cycle)             │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │
+                                v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       Normalization Engine                               │
+│         Vendor JSON → shared bid/ask ticker (symbol, size, volume)       │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │
+                                v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       Arbitrage Evaluator                                │
+│      Cross-venue matrix · raw & fee-adjusted spreads · best per symbol   │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │
+                                v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     Alert / Logging Output                               │
+│     STOMP `/topic/spreads` (dashboard) · Postgres `spread_log` (history) │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Deeper package layout, adapters, backoff, and API limits: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Prerequisites (local development)
 
 | Tool | Version | Notes |

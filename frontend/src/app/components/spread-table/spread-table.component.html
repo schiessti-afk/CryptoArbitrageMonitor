@@ -16,11 +16,11 @@
     </button>
   </div>
 
-  <div class="space-y-2">
+  <div class="density-stack">
     @for (group of groupedMatrix(); track group.symbol) {
       <div class="rounded-lg border border-theme overflow-hidden">
         <button type="button"
-                class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-muted-row hover:bg-[var(--row-hover)] transition-colors"
+                class="w-full flex items-center justify-between gap-3 px-3 density-accordion text-left bg-muted-row hover:bg-[var(--row-hover)] transition-colors"
                 (click)="toggleSymbol(group.symbol)"
                 [attr.aria-expanded]="isExpanded(group.symbol)">
           <span class="flex items-center gap-2 min-w-0">
@@ -53,14 +53,14 @@
             <table class="w-full border-collapse min-w-[640px]">
               <thead>
                 <tr class="bg-muted-row text-muted text-xs uppercase tracking-wider">
-                  <th class="border-b border-theme text-left sticky left-0 bg-muted-row z-10 font-semibold" [ngClass]="cellPadding()">Buy</th>
-                  <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Sell</th>
-                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Buy {{ quoteAsset() }}</th>
-                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Sell {{ quoteAsset() }}</th>
-                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Raw %</th>
-                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Fees %</th>
-                  <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Net %</th>
-                  <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Liq</th>
+                  <th class="density-cell border-b border-theme text-left sticky left-0 bg-muted-row z-10 font-semibold">Buy</th>
+                  <th class="density-cell border-b border-theme text-left font-semibold">Sell</th>
+                  <th class="density-cell border-b border-theme text-right font-semibold">Buy {{ quoteAsset() }}</th>
+                  <th class="density-cell border-b border-theme text-right font-semibold">Sell {{ quoteAsset() }}</th>
+                  <th class="density-cell border-b border-theme text-right font-semibold">Raw %</th>
+                  <th class="density-cell border-b border-theme text-right font-semibold">Fees %</th>
+                  <th class="density-cell border-b border-theme text-right font-semibold">Net %</th>
+                  <th class="density-cell border-b border-theme text-left font-semibold">Liq</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,23 +71,22 @@
                       tabindex="0"
                       role="button"
                       [attr.aria-pressed]="isSelected(row)">
-                    <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
-                    <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
-                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()"
+                    <td class="density-cell sticky left-0 bg-inherit z-10">{{ row.buyExchange }}</td>
+                    <td class="density-cell">{{ row.sellExchange }}</td>
+                    <td class="density-cell text-right font-mono tabular-nums"
                         [appFlashOnChange]="row.buyPrice">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
-                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()"
+                    <td class="density-cell text-right font-mono tabular-nums"
                         [appFlashOnChange]="row.sellPrice">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
-                    <td class="text-right tabular-nums" [ngClass]="cellPadding()"
+                    <td class="density-cell text-right tabular-nums"
                         [appFlashOnChange]="row.rawSpreadPercent">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
-                    <td class="text-right text-muted tabular-nums" [ngClass]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
-                    <td class="text-right font-bold tabular-nums"
-                        [ngClass]="cellPadding()"
+                    <td class="density-cell text-right text-muted tabular-nums">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
+                    <td class="density-cell text-right font-bold tabular-nums"
                         [appFlashOnChange]="row.netSpreadPercent"
                         [class.text-positive]="row.netSpreadPercent > 0.001"
                         [class.text-negative]="row.netSpreadPercent < -0.001">
                       {{ formatNet(row.netSpreadPercent) }}
                     </td>
-                    <td [ngClass]="cellPadding()">
+                    <td class="density-cell">
                       @if (liquidity(row); as liq) {
                         <span [class]="liqChipClass(row)" [title]="liq.tooltip">{{ liq.label }}</span>
                         @if (liq.maxVolume24h; as vol) {

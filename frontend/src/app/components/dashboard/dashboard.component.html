@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-page">
   <!-- Sticky header -->
   <header class="sticky top-0 z-30 bg-header backdrop-blur-md border-b border-theme">
-    <div class="max-w-7xl mx-auto px-4 py-3">
+    <div class="max-w-7xl mx-auto px-4 density-header">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-4 flex-wrap min-w-0">
           <div class="brand-lockup">
@@ -84,7 +84,7 @@
     [quoteAsset]="quoteAsset.selected()"
     (closed)="closeDepth()" />
 
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-7xl mx-auto px-4 py-4 density-main">
     @if (tooFewVenues()) {
       <div class="alert-warning flex items-center justify-between gap-3 flex-wrap">
         <span>Fewer than 2 venues visible for {{ quoteAsset.selected() }} — no spread can be computed.</span>
@@ -104,7 +104,7 @@
     }
 
     <!-- KPI row -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
       <div class="kpi-tile">
         <p class="kpi-label">Best net spread</p>
         <p class="kpi-value tabular-nums"
@@ -132,8 +132,8 @@
     </div>
 
     <!-- Opportunities panel -->
-    <section class="panel rounded-xl shadow-sm p-4">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+    <section class="panel">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
         <h2 class="text-lg font-bold tracking-tight">Top Opportunities</h2>
         <div class="flex gap-2 flex-wrap">
           @for (chip of [
@@ -158,14 +158,13 @@
         [coverage]="coverageForQuote()"
         [loading]="!websocket.snapshot()"
         [filteredEmpty]="hasActiveFilters() && rankedOpportunities().length === 0"
-        [density]="density()"
         [selectedRoute]="selectedRoute()"
         (clearFilters)="settings.clearFilters()"
         (routeSelected)="openDepth($event)" />
     </section>
 
     <!-- Matrix -->
-    <section class="panel rounded-xl shadow-sm p-4">
+    <section class="panel">
       <div class="mb-3">
         <h2 class="text-lg font-bold tracking-tight">Full Matrix</h2>
         <p class="text-xs text-muted mt-0.5">Tap a market to expand its routes</p>
@@ -178,13 +177,12 @@
         [coverage]="coverageForQuote()"
         [loading]="!websocket.snapshot()"
         [settings]="settings.settings()"
-        [density]="density()"
         [selectedRoute]="selectedRoute()"
         (routeSelected)="openDepth($event)" />
     </section>
 
     <!-- Fees panel -->
-    <details class="panel rounded-xl shadow-sm p-4">
+    <details class="panel">
       <summary class="cursor-pointer text-lg font-bold tracking-tight">Fees &amp; Spread Math</summary>
       <div class="mt-4 text-sm">
         @if (config().fees.length > 0) {

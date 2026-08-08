@@ -100,7 +100,9 @@ export class SettingsService {
 
   constructor() {
     effect(() => {
-      this.applyTheme(this.settings().theme);
+      const current = this.settings();
+      this.applyTheme(current.theme);
+      this.applyDensity(current.density);
     });
   }
 
@@ -211,12 +213,10 @@ export class SettingsService {
   }
 
   private applyTheme(theme: DashboardSettings['theme']) {
-    const root = document.documentElement;
-    root.removeAttribute('data-theme');
-    if (theme === 'dark') {
-      root.setAttribute('data-theme', 'dark');
-    } else if (theme === 'light') {
-      root.setAttribute('data-theme', 'light');
-    }
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  private applyDensity(density: DashboardSettings['density']) {
+    document.documentElement.setAttribute('data-density', density);
   }
 }

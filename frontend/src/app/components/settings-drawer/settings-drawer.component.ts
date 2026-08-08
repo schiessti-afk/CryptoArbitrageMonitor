@@ -99,6 +99,11 @@ export class SettingsDrawerComponent {
     return ['USDT', 'USD'].filter(q => available.has(q));
   }
 
+  systemPrefersLight(): boolean {
+    return typeof window !== 'undefined'
+      && !!window.matchMedia?.('(prefers-color-scheme: light)').matches;
+  }
+
   patch(partial: Partial<DashboardSettings>) {
     this.settings.update(partial);
   }

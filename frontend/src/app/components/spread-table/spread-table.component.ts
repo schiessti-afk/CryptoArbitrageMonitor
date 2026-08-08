@@ -26,7 +26,6 @@ export class SpreadTableComponent {
   coverage = input<SymbolCoverage[]>([]);
   loading = input(false);
   settings = input<DashboardSettings>({ ...DEFAULT_SETTINGS, disabledSymbols: [] });
-  density = input<'comfortable' | 'compact'>('comfortable');
   selectedRoute = input<SpreadOpportunity | null>(null);
 
   routeSelected = output<SpreadOpportunity>();
@@ -61,8 +60,6 @@ export class SpreadTableComponent {
   });
 
   allCollapsed = computed(() => this.expandedSymbols().size === 0);
-
-  cellPadding = computed(() => (this.density() === 'compact' ? 'p-2 text-xs' : 'p-3 text-sm'));
 
   isExpanded(symbol: string): boolean {
     return this.expandedSymbols().has(symbol);

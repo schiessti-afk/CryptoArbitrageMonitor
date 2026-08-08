@@ -15,15 +15,15 @@
   </div>
 } @else {
   <div class="overflow-x-auto rounded-lg border border-theme">
-    <table class="w-full text-sm border-collapse">
+    <table class="w-full border-collapse" style="font-size: var(--table-font-size)">
       <thead>
         <tr class="bg-muted-row text-left text-muted text-xs uppercase tracking-wider">
-          <th class="p-2 border-b border-theme font-semibold">Symbol</th>
-          <th class="p-2 border-b border-theme font-semibold">Route</th>
-          <th class="p-2 border-b border-theme font-semibold">Liq</th>
-          <th class="p-2 border-b border-theme text-right font-semibold">Net %</th>
-          <th class="p-2 border-b border-theme text-right font-semibold">Est. profit</th>
-          <th class="p-2 border-b border-theme text-right font-semibold">Age</th>
+          <th class="density-cell border-b border-theme font-semibold">Symbol</th>
+          <th class="density-cell border-b border-theme font-semibold">Route</th>
+          <th class="density-cell border-b border-theme font-semibold">Liq</th>
+          <th class="density-cell border-b border-theme text-right font-semibold">Net %</th>
+          <th class="density-cell border-b border-theme text-right font-semibold">Est. profit</th>
+          <th class="density-cell border-b border-theme text-right font-semibold">Age</th>
         </tr>
       </thead>
       <tbody>
@@ -37,8 +37,8 @@
               role="button"
               [attr.aria-pressed]="isSelected(opp)"
               [attr.aria-label]="'View depth for ' + opp.symbol + ' ' + opp.buyExchange + ' to ' + opp.sellExchange">
-            <td class="font-semibold tabular-nums" [ngClass]="rowPadding()">{{ opp.symbol }}</td>
-            <td [ngClass]="rowPadding()">
+            <td class="density-cell font-semibold tabular-nums">{{ opp.symbol }}</td>
+            <td class="density-cell">
               <span class="font-medium">{{ opp.buyExchange }}</span>
               <span class="text-muted mx-1">→</span>
               <span class="font-medium">{{ opp.sellExchange }}</span>
@@ -47,7 +47,7 @@
                 {{ opp.buyPrice | number:priceFormat(opp.buyPrice) }} → {{ opp.sellPrice | number:priceFormat(opp.sellPrice) }}
               </div>
             </td>
-            <td [ngClass]="rowPadding()">
+            <td class="density-cell">
               @if (liquidity(opp); as liq) {
                 <span [class]="liqChipClass(opp)" [title]="liq.tooltip">{{ liq.label }}</span>
                 @if (liq.maxVolume24h; as vol) {
@@ -57,17 +57,17 @@
                 }
               }
             </td>
-            <td class="text-right font-bold tabular-nums"
-                [ngClass]="[rowPadding(), getTextClass(opp.netSpreadPercent)]"
+            <td class="density-cell text-right font-bold tabular-nums"
+                [ngClass]="getTextClass(opp.netSpreadPercent)"
                 [appFlashOnChange]="opp.netSpreadPercent">
               {{ formatPercent(opp.netSpreadPercent) }}
             </td>
-            <td class="text-right tabular-nums" [ngClass]="rowPadding()"
+            <td class="density-cell text-right tabular-nums"
                 [appFlashOnChange]="profit(opp)"
                 [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees.'">
               {{ formatProfitValue(opp) }}
             </td>
-            <td class="text-right text-muted text-xs tabular-nums" [ngClass]="rowPadding()">
+            <td class="density-cell text-right text-muted text-xs tabular-nums">
               @if (opp.calculatedAt) {
                 live
               } @else {

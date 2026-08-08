@@ -40,7 +40,6 @@ export class SpreadDetailComponent {
   coverage = input<SymbolCoverage[]>([]);
   loading = input(false);
   filteredEmpty = input(false);
-  density = input<'comfortable' | 'compact'>('comfortable');
   selectedRoute = input<SpreadOpportunity | null>(null);
 
   clearFilters = output<void>();
@@ -121,9 +120,5 @@ export class SpreadDetailComponent {
       return `No venues reporting ${symbol} — waiting for data.`;
     }
     return `Only ${cov.freshVenues} venue reporting ${symbol} — a cross-venue comparison needs 2.`;
-  }
-
-  rowPadding(): string {
-    return this.density() === 'compact' ? 'py-2 px-3' : 'py-3 px-4';
   }
 }
