@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cam-postgres
+    environment:
+      POSTGRES_DB: arbitrage
+      POSTGRES_USER: arbitrage
+      POSTGRES_PASSWORD: arbitrage
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arbitrage -d arbitrage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # backend and frontend images are added in Sprint 3.
+  # Until then, run them locally against this Postgres instance.
+
+volumes:
+  postgres-data:

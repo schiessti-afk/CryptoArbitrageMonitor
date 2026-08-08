@@ -1,0 +1,42 @@
+# Java / Gradle
+backend/.gradle/
+backend/build/
+backend/out/
+backend/.idea/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+.classpath
+.project
+.settings/
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.sass-cache/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.user
+*.suo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Docker
+postgres-data/
