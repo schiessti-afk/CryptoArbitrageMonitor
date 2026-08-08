@@ -133,6 +133,72 @@
                  (ngModelChange)="patch({ defaultNotionalOverride: $event === '' || $event === null ? null : +$event })" />
         </section>
 
+        <section>
+          <h3 class="font-semibold mb-3 text-sm uppercase tracking-wider text-muted">Data</h3>
+          <p class="text-xs text-muted mb-3">
+            Historical opportunities are stored in Postgres. Clearing history does not remove tracked markets or fees.
+          </p>
+
+          @if (dbStatsLoading()) {
+            <p class="text-sm text-muted mb-3">Loading database size…</p>
+          } @else if (dbStatsError()) {
+            <p class="text-sm text-negative mb-3">{{ dbStatsError() }}</p>
+            <button type="button" class="btn-secondary w-full mb-3" (click)="loadDbStats()">Retry</button>
+          } @else if (dbStats()) {
+            <dl class="text-sm space-y-2 mb-4">
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted">Database size</dt>
+                <dd>{{ dbStats()!.sizePretty }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted">History table</dt>
+                <dd>{{ dbStats()!.spreadLogSizePretty }}</dd>
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <dt class="text-muted">History rows</dt>
+                <dd>{{ dbStats()!.spreadLogRows | number }}</dd>
+              </div>
+            </dl>
+          }
+
+          @if (flushMessage()) {
+            <p class="text-sm text-muted mb-3">{{ flushMessage() }}</p>
+          }
+          @if (flushError()) {
+            <p class="text-sm text-negative mb-3">{{ flushError() }}</p>
+          }
+
+          @if (!flushConfirming()) {
+            <button type="button"
+                    class="btn-secondary w-full text-negative"
+                    [disabled]="flushInProgress() || dbStatsLoading()"
+                    (click)="requestFlush()">
+              Clear history
+            </button>
+          } @else {
+            <div class="alert-warning mb-3">
+              <p class="text-sm font-semibold mb-1">Clear all spread history?</p>
+              <p class="text-xs opacity-90">
+                This permanently deletes stored opportunities. Live polling continues; new rows will accumulate again.
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button"
+                      class="btn-secondary flex-1"
+                      [disabled]="flushInProgress()"
+                      (click)="cancelFlush()">
+                Cancel
+              </button>
+              <button type="button"
+                      class="btn-secondary flex-1 text-negative"
+                      [disabled]="flushInProgress()"
+                      (click)="confirmFlush()">
+                {{ flushInProgress() ? 'Clearing…' : 'Confirm clear' }}
+              </button>
+            </div>
+          }
+        </section>
+
         <button type="button" class="btn-secondary w-full" (click)="reset()">Reset to defaults</button>
       </div>
     </aside>

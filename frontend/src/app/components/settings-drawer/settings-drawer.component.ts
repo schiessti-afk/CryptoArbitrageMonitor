@@ -3,6 +3,8 @@ import {
   Component,
   ElementRef,
   HostListener,
+  effect,
+  inject,
   input,
   output,
   signal,
@@ -11,6 +13,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SettingsService, DashboardSettings } from '../../services/settings.service';
+import { DatabaseService, DatabaseStats } from '../../services/database.service';
 import { ExchangeStatus } from '../../models/spread.model';
 import { AppConfig } from '../../models/spread.model';
 import { UsdtMarketPickerComponent } from '../usdt-market-picker/usdt-market-picker.component';
@@ -37,8 +40,27 @@ export class SettingsDrawerComponent {
 
   private triggerButton = viewChild<ElementRef<HTMLButtonElement>>('trigger');
   private previouslyFocused: HTMLElement | null = null;
+  private readonly database = inject(DatabaseService);
 
-  constructor(public settings: SettingsService) {}
+  readonly dbStats = signal<DatabaseStats | null>(null);
+  readonly dbStatsLoading = signal(false);
+  readonly dbStatsError = signal<string | null>(null);
+  readonly flushConfirming = signal(false);
+  readonly flushInProgress = signal(false);
+  readonly flushError = signal<string | null>(null);
+  readonly flushMessage = signal<string | null>(null);
+
+  constructor(public settings: SettingsService) {
+    effect(() => {
+      if (this.open()) {
+        this.loadDbStats();
+      } else {
+        this.flushConfirming.set(false);
+        this.flushError.set(null);
+        this.flushMessage.set(null);
+      }
+    });
+  }
 
   @HostListener('document:keydown.escape')
   onEscape() {
@@ -83,5 +105,52 @@ export class SettingsDrawerComponent {
 
   reset() {
     this.settings.resetToDefaults();
+  }
+
+  loadDbStats() {
+    this.dbStatsLoading.set(true);
+    this.dbStatsError.set(null);
+    this.database.getStats().subscribe({
+      next: stats => {
+        this.dbStats.set(stats);
+        this.dbStatsLoading.set(false);
+      },
+      error: () => {
+        this.dbStatsError.set('Could not load database size.');
+        this.dbStatsLoading.set(false);
+      },
+    });
+  }
+
+  requestFlush() {
+    this.flushConfirming.set(true);
+    this.flushError.set(null);
+    this.flushMessage.set(null);
+  }
+
+  cancelFlush() {
+    this.flushConfirming.set(false);
+  }
+
+  confirmFlush() {
+    this.flushInProgress.set(true);
+    this.flushError.set(null);
+    this.flushMessage.set(null);
+    this.database.flushSpreadLog().subscribe({
+      next: result => {
+        this.dbStats.set(result.stats);
+        this.flushMessage.set(
+          result.deletedRows === 0
+            ? 'History was already empty.'
+            : `Cleared ${result.deletedRows.toLocaleString()} history row${result.deletedRows === 1 ? '' : 's'}.`
+        );
+        this.flushConfirming.set(false);
+        this.flushInProgress.set(false);
+      },
+      error: () => {
+        this.flushError.set('Failed to clear history.');
+        this.flushInProgress.set(false);
+      },
+    });
   }
 }
