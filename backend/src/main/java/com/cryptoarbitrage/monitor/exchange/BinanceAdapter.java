@@ -90,9 +90,13 @@ public class BinanceAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Binance: invalid bid/ask prices");
         }
 
+        String nativeSymbol = mapToNativeSymbol(internalSymbol);
+
         return new PriceTicker(
                 Exchange.BINANCE,
                 internalSymbol,
+                nativeSymbol,
+                "USD",
                 bid,
                 ask,
                 Instant.now()

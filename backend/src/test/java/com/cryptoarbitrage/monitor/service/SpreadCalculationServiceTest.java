@@ -22,8 +22,8 @@ class SpreadCalculationServiceTest {
 
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "BTC/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("99"), new BigDecimal("100"), Instant.now()),
-                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("99"), new BigDecimal("100"), Instant.now()),
+                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", "XXBTZUSD", "USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
                 )
         );
 
@@ -51,8 +51,8 @@ class SpreadCalculationServiceTest {
 
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "BTC/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("99"), new BigDecimal("100"), Instant.now()),
-                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("99"), new BigDecimal("100"), Instant.now()),
+                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", "XXBTZUSD", "USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
                 )
         );
 
@@ -76,8 +76,8 @@ class SpreadCalculationServiceTest {
         // Same price on both exchanges
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "BTC/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now()),
-                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now()),
+                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", "XXBTZUSD", "USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now())
                 )
         );
 
@@ -98,8 +98,8 @@ class SpreadCalculationServiceTest {
         // Fees reduce profitability significantly
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "ETH/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "ETH/USD", new BigDecimal("2000"), new BigDecimal("2100"), Instant.now()),
-                        new PriceTicker(Exchange.COINBASE, "ETH/USD", new BigDecimal("2020"), new BigDecimal("2200"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "ETH/USD", "ETHUSD", "USD", new BigDecimal("2000"), new BigDecimal("2100"), Instant.now()),
+                        new PriceTicker(Exchange.COINBASE, "ETH/USD", "ETH-USD", "USD", new BigDecimal("2020"), new BigDecimal("2200"), Instant.now())
                 )
         );
 
@@ -122,12 +122,12 @@ class SpreadCalculationServiceTest {
     void testMultipleSymbols() {
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "BTC/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now()),
-                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now()),
+                        new PriceTicker(Exchange.KRAKEN, "BTC/USD", "XXBTZUSD", "USD", new BigDecimal("101"), new BigDecimal("102"), Instant.now())
                 ),
                 "ETH/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "ETH/USD", new BigDecimal("2000"), new BigDecimal("2000"), Instant.now()),
-                        new PriceTicker(Exchange.KRAKEN, "ETH/USD", new BigDecimal("2020"), new BigDecimal("2030"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "ETH/USD", "ETHUSD", "USD", new BigDecimal("2000"), new BigDecimal("2000"), Instant.now()),
+                        new PriceTicker(Exchange.KRAKEN, "ETH/USD", "XETHZUSD", "USD", new BigDecimal("2020"), new BigDecimal("2030"), Instant.now())
                 )
         );
 
@@ -146,15 +146,23 @@ class SpreadCalculationServiceTest {
     @Test
     void testInvalidPriceThrowsException() {
         assertThrows(IllegalArgumentException.class, () -> {
-            new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("0"), new BigDecimal("100"), Instant.now());
+            new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("0"), new BigDecimal("100"), Instant.now());
         });
 
         assertThrows(IllegalArgumentException.class, () -> {
-            new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("100"), new BigDecimal("-50"), Instant.now());
+            new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("100"), new BigDecimal("-50"), Instant.now());
         });
 
         assertThrows(IllegalArgumentException.class, () -> {
-            new PriceTicker(Exchange.BINANCE, "BTC/USD", null, new BigDecimal("100"), Instant.now());
+            new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", null, new BigDecimal("100"), Instant.now());
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new PriceTicker(Exchange.BINANCE, "BTC/USD", null, "USD", new BigDecimal("100"), new BigDecimal("100"), Instant.now());
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", null, new BigDecimal("100"), new BigDecimal("100"), Instant.now());
         });
     }
 
@@ -163,8 +171,8 @@ class SpreadCalculationServiceTest {
         // If tickers come from the same exchange, no routes should be created
         Map<String, List<PriceTicker>> tickers = Map.of(
                 "BTC/USD", List.of(
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("100"), new BigDecimal("101"), Instant.now()),
-                        new PriceTicker(Exchange.BINANCE, "BTC/USD", new BigDecimal("100"), new BigDecimal("101"), Instant.now())
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("100"), new BigDecimal("101"), Instant.now()),
+                        new PriceTicker(Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD", new BigDecimal("100"), new BigDecimal("101"), Instant.now())
                 )
         );
 
@@ -176,5 +184,58 @@ class SpreadCalculationServiceTest {
 
         assertEquals(0, result.fullMatrix.size());
         assertEquals(0, result.bestPerSymbol.size());
+    }
+
+    @Test
+    void testCalculateSpread_Kraken_to_Binance_matches_screenshot() {
+        // Screenshot numbers: Buy Kraken @ 64,967.30, Sell Binance @ 64,963.00
+        // Kraken fee: 0.26%, Binance fee: 0.1%
+        // Expected net spread: -0.3675%
+
+        PriceTicker buyTicker = new PriceTicker(
+                Exchange.KRAKEN,
+                "BTC/USD",
+                "XXBTZUSD",
+                "USD",
+                new BigDecimal("64961.00"),  // bid
+                new BigDecimal("64967.30"),  // ask (use this for buying)
+                Instant.now()
+        );
+
+        PriceTicker sellTicker = new PriceTicker(
+                Exchange.BINANCE,
+                "BTC/USD",
+                "BTCUSD",
+                "USD",
+                new BigDecimal("64963.00"),  // bid (use this for selling)
+                new BigDecimal("64968.00"),  // ask
+                Instant.now()
+        );
+
+        Map<Exchange, BigDecimal> fees = Map.of(
+                Exchange.KRAKEN, new BigDecimal("0.0026"),
+                Exchange.BINANCE, new BigDecimal("0.001")
+        );
+
+        var result = service.calculateSpreads(
+                Map.of("BTC/USD", List.of(buyTicker, sellTicker)),
+                fees
+        );
+
+        var opportunity = result.fullMatrix.stream()
+                .filter(o -> o.buyExchange == Exchange.KRAKEN && o.sellExchange == Exchange.BINANCE)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Kraken->Binance opportunity not found"));
+
+        // Assert the exact net spread from the screenshot
+        assertEquals(new BigDecimal("-0.3675"),
+                opportunity.netSpreadPercent.setScale(4, java.math.RoundingMode.HALF_UP),
+                "Net spread should be -0.3675%");
+
+        // Verify the native symbols are threaded through
+        assertEquals("XXBTZUSD", opportunity.buyNativeSymbol);
+        assertEquals("BTCUSD", opportunity.sellNativeSymbol);
+        assertEquals("USD", opportunity.buyQuoteAsset);
+        assertEquals("USD", opportunity.sellQuoteAsset);
     }
 }

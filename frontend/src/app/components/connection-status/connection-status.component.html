@@ -1,18 +1,19 @@
 <div class="bg-white p-4 rounded-lg shadow">
-  <div class="flex items-center gap-4">
-    <!-- LIVE Badge -->
+  <div class="flex items-center gap-4 flex-wrap">
+    <!-- Status Badge -->
     <div class="flex items-center gap-2">
-      <span class="text-2xl" [ngClass]="snapshot()?.live ? 'text-green-500' : 'text-red-500'">
-        ●
-      </span>
-      <span class="text-lg font-bold" [ngClass]="snapshot()?.live ? 'text-green-600' : 'text-red-600'">
-        {{ snapshot()?.live ? 'LIVE' : 'DEGRADED' }}
+      <span class="text-2xl">{{ getBadgeEmoji() }}</span>
+      <span class="text-lg font-bold"
+            [class.text-green-600]="badge() === 'LIVE'"
+            [class.text-yellow-600]="badge() === 'DEGRADED'"
+            [class.text-red-600]="badge() === 'STALE'">
+        {{ badge() }}
       </span>
     </div>
 
     <!-- Last Update Time -->
     <p class="text-sm text-gray-600">
-      {{ lastUpdateAge() }}
+      {{ lastMessageAge() }}
     </p>
 
     <!-- Exchange Status Chips -->

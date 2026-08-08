@@ -119,6 +119,8 @@ public class KrakenAdapter implements ExchangeAdapter {
         return new PriceTicker(
                 Exchange.KRAKEN,
                 internalSymbol,
+                nativeSymbol,
+                "USD",
                 bid,
                 ask,
                 Instant.now()

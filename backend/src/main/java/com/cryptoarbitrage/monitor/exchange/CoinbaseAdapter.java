@@ -91,9 +91,13 @@ public class CoinbaseAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Coinbase: invalid bid/ask prices");
         }
 
+        String nativeSymbol = mapToNativeSymbol(internalSymbol);
+
         return new PriceTicker(
                 Exchange.COINBASE,
                 internalSymbol,
+                nativeSymbol,
+                "USD",
                 bid,
                 ask,
                 Instant.now()

@@ -9,7 +9,11 @@ import java.time.Instant;
 public record SpreadDto(
         String symbol,
         String buyExchange,
+        String buyNativeSymbol,
+        String buyQuoteAsset,
         String sellExchange,
+        String sellNativeSymbol,
+        String sellQuoteAsset,
         BigDecimal buyPrice,
         BigDecimal sellPrice,
         BigDecimal rawSpreadPercent,
@@ -20,7 +24,11 @@ public record SpreadDto(
         return new SpreadDto(
                 log.getSymbol(),
                 log.getBuyExchange(),
+                null,  // Native symbols not stored in SpreadLog
+                null,
                 log.getSellExchange(),
+                null,
+                null,
                 log.getBuyPrice(),
                 log.getSellPrice(),
                 log.getRawSpreadPercent(),
@@ -33,7 +41,11 @@ public record SpreadDto(
         return new SpreadDto(
                 opp.symbol,
                 opp.buyExchange.name(),
+                opp.buyNativeSymbol,
+                opp.buyQuoteAsset,
                 opp.sellExchange.name(),
+                opp.sellNativeSymbol,
+                opp.sellQuoteAsset,
                 opp.buyPrice,
                 opp.sellPrice,
                 opp.rawSpreadPercent,

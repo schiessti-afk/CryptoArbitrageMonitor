@@ -572,6 +572,748 @@ Add Tailwind and reset defaults.
 
 ---
 
+## Sprint 2 Refinements Implementation
+
+### Backend: 1. Quote asset threading and validation
+
+**PriceTicker.java** — add fields:
+
+```java
+public record PriceTicker(
+    Exchange exchange,
+    String symbol,           // Internal: BTC/USD
+    String nativeSymbol,     // Exchange-specific: BTCUSD, XXBTZUSD, BTC-USD
+    String quoteAsset,       // USD, USDT, EUR, etc.
+    BigDecimal bid,
+    BigDecimal ask,
+    Instant receivedAt
+) {}
+```
+
+**ExchangeProperties.java** — restructure symbol mapping:
+
+```
+exchange.binance.markets.BTC_USD.native-symbol=BTCUSD
+exchange.binance.markets.BTC_USD.quote-asset=USD
+exchange.binance.markets.ETH_USD.native-symbol=ETHUSD
+exchange.binance.markets.ETH_USD.quote-asset=USD
+
+exchange.kraken.markets.BTC_USD.native-symbol=XXBTZUSD
+exchange.kraken.markets.BTC_USD.quote-asset=USD
+exchange.kraken.markets.ETH_USD.native-symbol=XETHZUSD
+exchange.kraken.markets.ETH_USD.quote-asset=USD
+
+exchange.coinbase.markets.BTC_USD.native-symbol=BTC-USD
+exchange.coinbase.markets.BTC_USD.quote-asset=USD
+exchange.coinbase.markets.ETH_USD.native-symbol=ETH-USD
+exchange.coinbase.markets.ETH_USD.quote-asset=USD
+```
+
+**Add config validator** — new file `MarketConfigValidator.java`:
+
+```java
+@Component
+public class MarketConfigValidator {
+    private static final Logger log = LoggerFactory.getLogger(MarketConfigValidator.class);
+    private final ExchangeProperties properties;
+
+    @PostConstruct
+    public void validate() {
+        // For each internal symbol, check all exchanges agree on quote asset
+        Map<String, Set<String>> symbolToQuotes = new HashMap<>();
+        for (var adapter : properties.getAdapters().values()) {
+            for (var market : adapter.getMarkets().values()) {
+                symbolToQuotes.computeIfAbsent(market.getSymbol(), k -> new HashSet<>())
+                    .add(market.getQuoteAsset());
+            }
+        }
+        
+        for (var entry : symbolToQuotes.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                log.warn("Symbol {} configured with mixed quote assets: {}", 
+                    entry.getKey(), entry.getValue());
+            }
+        }
+    }
+}
+```
+
+**SpreadOpportunity and SpreadDto** — add quote asset fields:
+
+```java
+public static class SpreadOpportunity {
+    public final String symbol;
+    public final Exchange buyExchange;
+    public final String buyNativeSymbol;
+    public final String buyQuoteAsset;
+    // ... sell equivalents ...
+    public final BigDecimal buyPrice;
+    // ... rest unchanged ...
+}
+
+public record SpreadDto(
+    String symbol,
+    String buyExchange,
+    String buyNativeSymbol,
+    String buyQuoteAsset,
+    // ... sell equivalents ...
+    BigDecimal buyPrice,
+    // ... rest unchanged ...
+) {}
+```
+
+**Update adapters** — each adapter now threads `nativeSymbol` and `quoteAsset` into `PriceTicker`:
+
+```java
+return new PriceTicker(
+    Exchange.BINANCE,
+    internalSymbol,
+    nativeSymbol,
+    "USD",  // or fetched from config
+    bid,
+    ask,
+    Instant.now()
+);
+```
+
+**Thread through SpreadCalculationService** — add fields to `SpreadOpportunity` constructor:
+
+```java
+SpreadOpportunity opp = new SpreadOpportunity(
+    symbol,
+    buyTicker.exchange(),
+    buyTicker.nativeSymbol(),
+    buyTicker.quoteAsset(),
+    sellTicker.exchange(),
+    sellTicker.nativeSymbol(),
+    sellTicker.quoteAsset(),
+    buyPrice,
+    sellPrice,
+    rawSpreadPercent,
+    netSpreadPercent
+);
+```
+
+### Backend: 5. GET /api/config endpoint
+
+**New AppConfigDto.java**:
+
+```java
+public record AppConfigDto(
+    int defaultNotional,
+    int freshnessWindowMs,
+    double neutralEpsilonPercent,
+    List<FeeDto> fees
+) {}
+```
+
+**Add to SpreadController**:
+
+```java
+@GetMapping("/config")
+public ResponseEntity<AppConfigDto> getConfig() {
+    var fees = feeService.getAllFees().entrySet().stream()
+        .map(e -> new FeeDto(e.getKey().name(), e.getValue(), Instant.now()))
+        .toList();
+    
+    return ResponseEntity.ok(new AppConfigDto(
+        appProperties.getInvestment().getDefaultNotional(),
+        appProperties.getPolling().getFreshnessWindowMs(),
+        0.001,  // neutralEpsilonPercent
+        fees
+    ));
+}
+```
+
+### Frontend: 1. Spread state classifier utility
+
+**New file: `src/app/utils/spread-state.ts`**:
+
+```typescript
+export type SpreadState = 'POTENTIAL' | 'NO_OPPORTUNITY' | 'NEUTRAL';
+
+export const NEUTRAL_EPSILON_PERCENT = 0.001;
+
+export function getSpreadState(netPercent: number): SpreadState {
+  if (netPercent > NEUTRAL_EPSILON_PERCENT) return 'POTENTIAL';
+  if (netPercent < -NEUTRAL_EPSILON_PERCENT) return 'NO_OPPORTUNITY';
+  return 'NEUTRAL';
+}
+
+export function getStateClasses(state: SpreadState): Record<string, boolean> {
+  const baseClasses = {
+    'p-4': true,
+    'rounded-lg': true,
+    'border': true,
+  };
+
+  switch (state) {
+    case 'POTENTIAL':
+      return {
+        ...baseClasses,
+        'bg-green-50': true,
+        'border-green-200': true,
+      };
+    case 'NO_OPPORTUNITY':
+      return {
+        ...baseClasses,
+        'bg-red-50': true,
+        'border-red-200': true,
+      };
+    case 'NEUTRAL':
+      return {
+        ...baseClasses,
+        'bg-gray-50': true,
+        'border-gray-200': true,
+      };
+  }
+}
+
+export function getStateLabel(state: SpreadState, netPercent: number): string {
+  switch (state) {
+    case 'POTENTIAL':
+      return `POTENTIAL OPPORTUNITY — Net spread: +${netPercent.toFixed(4)}%`;
+    case 'NO_OPPORTUNITY':
+      return `NO POSITIVE OPPORTUNITY — Best net spread: ${netPercent.toFixed(4)}%`;
+    case 'NEUTRAL':
+      return `NO MEANINGFUL SPREAD — Net spread: ${netPercent.toFixed(4)}%`;
+  }
+}
+
+export function getIndicatorEmoji(state: SpreadState): string {
+  switch (state) {
+    case 'POTENTIAL': return '🟢';
+    case 'NO_OPPORTUNITY': return '🔴';
+    case 'NEUTRAL': return '⚪';
+  }
+}
+```
+
+### Frontend: 2-3. Updated spread-detail component
+
+**spread-detail.component.ts**:
+
+```typescript
+import { Component, Input, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SpreadOpportunity } from '../../models/spread.model';
+import { getSpreadState, getStateClasses, getStateLabel, getIndicatorEmoji } from '../../utils/spread-state';
+
+@Component({
+  selector: 'app-spread-detail',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './spread-detail.component.html',
+  styles: []
+})
+export class SpreadDetailComponent {
+  @Input() opportunities: SpreadOpportunity[] = [];
+  @Input() notional = 1000;
+
+  estimatedProfit(opp: SpreadOpportunity): number {
+    return (this.notional * opp.netSpreadPercent) / 100;
+  }
+
+  getState(netPercent: number) {
+    return getSpreadState(netPercent);
+  }
+
+  getClasses(netPercent: number) {
+    return getStateClasses(this.getState(netPercent));
+  }
+
+  getLabel(netPercent: number) {
+    return getStateLabel(this.getState(netPercent), netPercent);
+  }
+
+  getEmoji(netPercent: number) {
+    return getIndicatorEmoji(this.getState(netPercent));
+  }
+}
+```
+
+**spread-detail.component.html** (rewrite):
+
+```html
+<div>
+  <h2 class="text-lg font-bold mb-4">Best Current Spreads</h2>
+  @if (opportunities.length === 0) {
+    <p class="text-gray-500">Waiting for data...</p>
+  }
+  <div class="space-y-4">
+    @for (opp of opportunities; track opp.symbol) {
+      <div [ngClass]="getClasses(opp.netSpreadPercent)">
+        <div class="flex justify-between items-start mb-2">
+          <h3 class="text-lg font-bold">{{ opp.symbol }}</h3>
+          <span class="text-2xl">{{ getEmoji(opp.netSpreadPercent) }}</span>
+        </div>
+
+        <div class="text-sm font-semibold mb-3"
+             [ngClass]="opp.netSpreadPercent > 0.001 ? 'text-green-700' : (opp.netSpreadPercent < -0.001 ? 'text-red-700' : 'text-gray-700')">
+          {{ getLabel(opp.netSpreadPercent) }}
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-sm mb-3">
+          <div>
+            <p class="text-gray-600">Buy on: {{ opp.buyExchange }}</p>
+            <p class="font-mono text-lg">{{ opp.buyPrice | number:'1.2-8' }}</p>
+          </div>
+          <div>
+            <p class="text-gray-600">Sell on: {{ opp.sellExchange }}</p>
+            <p class="font-mono text-lg">{{ opp.sellPrice | number:'1.2-8' }}</p>
+          </div>
+        </div>
+
+        <div class="border-t pt-3">
+          <p class="text-sm text-gray-600">Raw Spread: {{ opp.rawSpreadPercent | number:'1.4-4' }}%</p>
+          <p class="text-xl font-bold" 
+             [ngClass]="estimatedProfit(opp) < 0 ? 'text-red-600' : (estimatedProfit(opp) > 0 ? 'text-green-600' : 'text-gray-600')">
+            Estimated profit: ${{ estimatedProfit(opp) | number:'1.2-2' }}
+          </p>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+```
+
+### Frontend: 4. Matrix grouping and sorting
+
+**spread-table.component.ts** (rewrite):
+
+```typescript
+import { Component, Input, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SpreadOpportunity } from '../../models/spread.model';
+import { getStateClasses, getSpreadState } from '../../utils/spread-state';
+
+interface MatrixGroup {
+  symbol: string;
+  rows: SpreadOpportunity[];
+}
+
+@Component({
+  selector: 'app-spread-table',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './spread-table.component.html',
+  styles: []
+})
+export class SpreadTableComponent {
+  @Input() matrix: SpreadOpportunity[] = [];
+  @Input() notional = 1000;
+
+  groupedMatrix = computed(() => {
+    const groups = new Map<string, SpreadOpportunity[]>();
+    
+    for (const row of this.matrix) {
+      if (!groups.has(row.symbol)) {
+        groups.set(row.symbol, []);
+      }
+      groups.get(row.symbol)!.push(row);
+    }
+
+    return Array.from(groups.entries())
+      .map(([symbol, rows]) => ({
+        symbol,
+        rows: rows.sort((a, b) => {
+          // Sort by net spread desc, then raw spread desc, then buy exchange name
+          if (b.netSpreadPercent !== a.netSpreadPercent) {
+            return b.netSpreadPercent.valueOf() - a.netSpreadPercent.valueOf();
+          }
+          if (b.rawSpreadPercent !== a.rawSpreadPercent) {
+            return b.rawSpreadPercent.valueOf() - a.rawSpreadPercent.valueOf();
+          }
+          return a.buyExchange.localeCompare(b.buyExchange);
+        })
+      }))
+      .sort((a, b) => a.symbol.localeCompare(b.symbol));
+  });
+
+  getRowClass(netPercent: number) {
+    return getStateClasses(getSpreadState(netPercent));
+  }
+}
+```
+
+**spread-table.component.html** (rewrite with grouping):
+
+```html
+<div class="overflow-x-auto">
+  <h2 class="text-lg font-bold mb-4">Full Matrix</h2>
+  @if (matrix.length === 0) {
+    <p class="text-gray-500 text-sm">No data yet</p>
+  }
+  
+  @for (group of groupedMatrix(); track group.symbol) {
+    <div class="mb-6">
+      <h3 class="text-md font-semibold mb-2 text-gray-700">{{ group.symbol }}</h3>
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="border p-2 text-left">Buy</th>
+            <th class="border p-2 text-left">Sell</th>
+            <th class="border p-2 text-right">Buy $</th>
+            <th class="border p-2 text-right">Sell $</th>
+            <th class="border p-2 text-right">Raw %</th>
+            <th class="border p-2 text-right">Fees %</th>
+            <th class="border p-2 text-right">Net %</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of group.rows; track row.buyExchange + row.sellExchange) {
+            <tr [ngClass]="row.netSpreadPercent > 0 ? 'bg-green-50' : (row.netSpreadPercent < 0 ? 'bg-red-50' : '')">
+              <td class="border p-2">{{ row.buyExchange }}</td>
+              <td class="border p-2">{{ row.sellExchange }}</td>
+              <td class="border p-2 text-right font-mono">{{ row.buyPrice | number:'1.2-4' }}</td>
+              <td class="border p-2 text-right font-mono">{{ row.sellPrice | number:'1.2-4' }}</td>
+              <td class="border p-2 text-right">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
+              <td class="border p-2 text-right">{{ (row.rawSpreadPercent - row.netSpreadPercent) | number:'1.2-2' }}%</td>
+              <td class="border p-2 text-right font-bold">{{ row.netSpreadPercent | number:'1.2-4' }}%</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+```
+
+### Frontend: 5. Notional quick-select + config
+
+**Update dashboard.component.html**:
+
+```html
+<div class="min-h-screen bg-gray-50 p-6">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-4xl font-bold mb-6">Crypto Arbitrage Monitor</h1>
+
+    <!-- Connection Status -->
+    <app-connection-status />
+
+    <!-- Notional Input with Quick Select -->
+    <div class="mt-6 bg-white p-4 rounded-lg shadow">
+      <label class="block text-sm font-medium mb-3">
+        Investment Amount ($):
+      </label>
+      <div class="flex gap-2 mb-3">
+        @for (amount of [100, 1000, 5000, 10000, 50000]; track amount) {
+          <button 
+            (click)="notional.set(amount)"
+            [class.bg-blue-600]="notional() === amount"
+            [class.text-white]="notional() === amount"
+            [class.bg-gray-200]="notional() !== amount"
+            class="px-3 py-2 rounded text-sm font-medium transition">
+            ${{ amount | number:'0' }}
+          </button>
+        }
+      </div>
+      <input
+        [(ngModel)]="notional"
+        type="number"
+        min="1"
+        max="10000000"
+        class="px-3 py-2 border rounded w-40"
+      />
+    </div>
+
+    <!-- Main Grid -->
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Best Opportunities -->
+      <div class="lg:col-span-2">
+        <app-spread-detail
+          [opportunities]="opportunities()"
+          [notional]="notional()"
+        />
+      </div>
+
+      <!-- Matrix Table -->
+      <div>
+        <app-spread-table
+          [matrix]="matrix()"
+          [notional]="notional()"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+**Update dashboard.component.ts** to load config:
+
+```typescript
+export class DashboardComponent implements OnInit, OnDestroy {
+  notional = signal(1000);
+  config = signal<any>(null);
+
+  opportunities = computed(() => this.websocket.snapshot()?.bestPerSymbol ?? []);
+  matrix = computed(() => this.websocket.snapshot()?.matrix ?? []);
+
+  constructor(
+    public websocket: WebsocketService,
+    private http: HttpClient
+  ) {}
+
+  ngOnInit() {
+    this.http.get<any>('/api/config').subscribe(cfg => this.config.set(cfg));
+    this.websocket.connect();
+  }
+
+  ngOnDestroy() {
+    this.websocket.disconnect();
+  }
+}
+```
+
+### Frontend: 6. Client-side freshness ticker
+
+**connection-status.component.ts** (complete rewrite):
+
+```typescript
+import { Component, signal, effect, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { WebsocketService } from '../../services/websocket.service';
+
+type ConnectionBadge = 'LIVE' | 'DEGRADED' | 'STALE';
+
+@Component({
+  selector: 'app-connection-status',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './connection-status.component.html',
+  styles: []
+})
+export class ConnectionStatusComponent implements OnInit, OnDestroy {
+  now = signal(Date.now());
+  lastMessageAge = signal('—');
+  badge = signal<ConnectionBadge>('STALE');
+
+  private tickerInterval: any;
+
+  constructor(
+    public websocket: WebsocketService,
+    private ngZone: NgZone
+  ) {
+    effect(() => {
+      const snap = this.websocket.snapshot();
+      const currentNow = this.now();
+      
+      if (!snap) {
+        this.lastMessageAge.set('—');
+        this.badge.set('STALE');
+        return;
+      }
+
+      const receivedAtMs = new Date(snap.calculatedAt).getTime();
+      const ageSeconds = (currentNow - receivedAtMs) / 1000;
+
+      if (ageSeconds > 10) {
+        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
+        this.badge.set('STALE');
+      } else if (!snap.live) {
+        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
+        this.badge.set('DEGRADED');
+      } else {
+        this.lastMessageAge.set(`Updated ${Math.floor(ageSeconds)}s ago`);
+        this.badge.set('LIVE');
+      }
+    });
+  }
+
+  ngOnInit() {
+    this.ngZone.runOutsideAngular(() => {
+      this.tickerInterval = setInterval(() => {
+        this.ngZone.run(() => {
+          this.now.set(Date.now());
+        });
+      }, 1000);
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.tickerInterval) {
+      clearInterval(this.tickerInterval);
+    }
+  }
+
+  snapshot() {
+    return this.websocket.snapshot();
+  }
+
+  getExchangeClass(freshness: string): string {
+    switch (freshness) {
+      case 'FRESH':
+        return 'bg-green-100 text-green-800';
+      case 'STALE':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  getBadgeEmoji(): string {
+    switch (this.badge()) {
+      case 'LIVE': return '🟢';
+      case 'DEGRADED': return '🟡';
+      case 'STALE': return '🔴';
+    }
+  }
+}
+```
+
+**connection-status.component.html** (rewrite):
+
+```html
+<div class="bg-white p-4 rounded-lg shadow">
+  <div class="flex items-center gap-4">
+    <!-- Status Badge -->
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">{{ getBadgeEmoji() }}</span>
+      <span class="text-lg font-bold"
+            [class.text-green-600]="badge() === 'LIVE'"
+            [class.text-yellow-600]="badge() === 'DEGRADED'"
+            [class.text-red-600]="badge() === 'STALE'">
+        {{ badge() }}
+      </span>
+    </div>
+
+    <!-- Last Update Time -->
+    <p class="text-sm text-gray-600">
+      {{ lastMessageAge() }}
+    </p>
+
+    <!-- Exchange Status Chips -->
+    <div class="flex gap-2 flex-wrap">
+      @for (ex of snapshot()?.exchanges ?? []; track ex.exchange) {
+        <span class="px-2 py-1 rounded text-xs font-semibold"
+              [ngClass]="getExchangeClass(ex.freshness)">
+          {{ ex.exchange }}: {{ ex.freshness }}
+        </span>
+      }
+    </div>
+  </div>
+</div>
+```
+
+**websocket.service.ts** — remove the `live` mutation:
+
+```typescript
+export class WebsocketService {
+  // ... other code ...
+  
+  private resetStalenessTimer() {
+    clearTimeout(this.stalenessTimer);
+    // Simply reset; don't mutate snapshot.live
+    // The UI derives STALE state from age, not from this signal mutation
+  }
+}
+```
+
+### Testing updates
+
+**Backend: SpreadCalculationServiceTest** — add test case with exact screenshot numbers:
+
+```java
+@Test
+void testCalculateSpread_Kraken_to_Binance_matches_screenshot() {
+  // Buy on Kraken: 64967.30, Sell on Binance: 64963.00
+  // Kraken fee: 0.26%, Binance fee: 0.1%
+  // Expected: net spread = -0.3675%
+  
+  PriceTicker buyTicker = new PriceTicker(
+    Exchange.KRAKEN, "BTC/USD", "XXBTZUSD", "USD",
+    new BigDecimal("64961.00"), new BigDecimal("64967.30"), Instant.now()
+  );
+  PriceTicker sellTicker = new PriceTicker(
+    Exchange.BINANCE, "BTC/USD", "BTCUSD", "USD",
+    new BigDecimal("64963.00"), new BigDecimal("64968.00"), Instant.now()
+  );
+  
+  Map<Exchange, BigDecimal> fees = Map.of(
+    Exchange.KRAKEN, new BigDecimal("0.0026"),
+    Exchange.BINANCE, new BigDecimal("0.001")
+  );
+  
+  var result = service.calculateSpreads(
+    Map.of("BTC/USD", List.of(buyTicker, sellTicker)),
+    fees
+  );
+  
+  var opportunity = result.fullMatrix.stream()
+    .filter(o -> o.buyExchange == Exchange.KRAKEN && o.sellExchange == Exchange.BINANCE)
+    .findFirst()
+    .orElseThrow();
+  
+  assertEquals(new BigDecimal("-0.3675"), opportunity.netSpreadPercent.setScale(4, RoundingMode.HALF_UP));
+}
+```
+
+**Frontend: spread-state.spec.ts** — test classifier boundaries:
+
+```typescript
+describe('spreadState', () => {
+  it('should classify potential opportunity', () => {
+    expect(getSpreadState(0.5)).toBe('POTENTIAL');
+  });
+
+  it('should classify no opportunity', () => {
+    expect(getSpreadState(-0.5)).toBe('NO_OPPORTUNITY');
+  });
+
+  it('should classify neutral at epsilon boundary', () => {
+    expect(getSpreadState(0.0005)).toBe('NEUTRAL');
+    expect(getSpreadState(-0.0005)).toBe('NEUTRAL');
+  });
+
+  it('should classify just outside neutral', () => {
+    expect(getSpreadState(0.0011)).toBe('POTENTIAL');
+    expect(getSpreadState(-0.0011)).toBe('NO_OPPORTUNITY');
+  });
+});
+```
+
+### Docs: "Fees and spread math" section
+
+Add to README.md and ARCHITECTURE.md:
+
+```markdown
+## Fees and spread math
+
+### Fee structure
+
+Each exchange charges a taker fee on the notional value:
+
+| Exchange  | Taker fee | Applied as |
+|-----------|-----------|-----------|
+| Binance   | 0.1%      | Fee on buy; deducted from sell proceeds |
+| Kraken    | 0.26%     | Fee on buy; deducted from sell proceeds |
+| Coinbase  | 0.6%      | Fee on buy; deducted from sell proceeds |
+
+### Formula
+
+For a route buying on exchange A at price P_buy and selling on exchange B at price P_sell:
+
+```
+Effective buy cost  = P_buy × (1 + feeA)
+Effective sell proceeds = P_sell × (1 − feeB)
+
+Net spread % = ((Effective sell proceeds / Effective buy cost) − 1) × 100
+```
+
+Example: Buy BTC/USD on Kraken at 64,967.30, sell on Binance at 64,963.00.
+
+```
+Effective buy cost = 64,967.30 × 1.0026 = 65,135.68
+Effective sell proceeds = 64,963.00 × 0.999 = 64,899.04
+
+Net spread = ((64,899.04 / 65,135.68) − 1) × 100 = −0.3675%
+```
+
+The negative spread means this route loses money after fees.
+```
+
+---
+
 ## Testing
 
 ### Backend

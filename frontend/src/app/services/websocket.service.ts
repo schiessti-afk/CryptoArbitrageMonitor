@@ -68,8 +68,7 @@ export class WebsocketService {
 
   private resetStalenessTimer() {
     clearTimeout(this.stalenessTimer);
-    this.stalenessTimer = setTimeout(() => {
-      this.snapshot.update(s => s ? { ...s, live: false } : null);
-    }, this.STALE_THRESHOLD_MS);
+    // Simply reset; don't mutate snapshot.live
+    // The UI derives STALE state from age (calculated on client), not from this mutation
   }
 }

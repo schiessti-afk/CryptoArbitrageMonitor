@@ -1,6 +1,7 @@
 package com.cryptoarbitrage.monitor.controller;
 
 import com.cryptoarbitrage.monitor.config.AppProperties;
+import com.cryptoarbitrage.monitor.dto.AppConfigDto;
 import com.cryptoarbitrage.monitor.dto.ExchangeStatusDto;
 import com.cryptoarbitrage.monitor.dto.FeeDto;
 import com.cryptoarbitrage.monitor.dto.PairDto;
@@ -104,6 +105,23 @@ public class SpreadController {
         }
 
         return ResponseEntity.ok(latestSpreads);
+    }
+
+    /**
+     * GET /api/config — application configuration (notional, epsilon, fees)
+     */
+    @GetMapping("/config")
+    public ResponseEntity<AppConfigDto> getConfig() {
+        var fees = feeService.getAllFees().entrySet().stream()
+                .map(e -> new FeeDto(e.getKey().name(), e.getValue(), Instant.now()))
+                .toList();
+
+        return ResponseEntity.ok(new AppConfigDto(
+                appProperties.getInvestment().getDefaultNotional(),
+                appProperties.getPolling().getFreshnessWindowMs(),
+                0.001,  // neutralEpsilonPercent (0.001% = 0.00001)
+                fees
+        ));
     }
 
     /**

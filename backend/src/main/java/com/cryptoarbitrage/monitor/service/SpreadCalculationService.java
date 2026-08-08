@@ -23,7 +23,11 @@ public class SpreadCalculationService {
     public static class SpreadOpportunity {
         public final String symbol;
         public final Exchange buyExchange;
+        public final String buyNativeSymbol;
+        public final String buyQuoteAsset;
         public final Exchange sellExchange;
+        public final String sellNativeSymbol;
+        public final String sellQuoteAsset;
         public final BigDecimal buyPrice;
         public final BigDecimal sellPrice;
         public final BigDecimal rawSpreadPercent;
@@ -32,7 +36,11 @@ public class SpreadCalculationService {
         public SpreadOpportunity(
                 String symbol,
                 Exchange buyExchange,
+                String buyNativeSymbol,
+                String buyQuoteAsset,
                 Exchange sellExchange,
+                String sellNativeSymbol,
+                String sellQuoteAsset,
                 BigDecimal buyPrice,
                 BigDecimal sellPrice,
                 BigDecimal rawSpreadPercent,
@@ -40,7 +48,11 @@ public class SpreadCalculationService {
         ) {
             this.symbol = symbol;
             this.buyExchange = buyExchange;
+            this.buyNativeSymbol = buyNativeSymbol;
+            this.buyQuoteAsset = buyQuoteAsset;
             this.sellExchange = sellExchange;
+            this.sellNativeSymbol = sellNativeSymbol;
+            this.sellQuoteAsset = sellQuoteAsset;
             this.buyPrice = buyPrice;
             this.sellPrice = sellPrice;
             this.rawSpreadPercent = rawSpreadPercent;
@@ -147,7 +159,11 @@ public class SpreadCalculationService {
         return new SpreadOpportunity(
                 symbol,
                 buyTicker.exchange(),
+                buyTicker.nativeSymbol(),
+                buyTicker.quoteAsset(),
                 sellTicker.exchange(),
+                sellTicker.nativeSymbol(),
+                sellTicker.quoteAsset(),
                 buyPrice,
                 sellPrice,
                 rawSpreadPercent,

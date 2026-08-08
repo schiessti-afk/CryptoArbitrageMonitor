@@ -5,10 +5,13 @@ import java.time.Instant;
 
 /**
  * Represents normalized bid/ask prices from a single exchange for a single symbol.
+ * Includes native market details (exchange-specific symbol and quote asset) for transparency.
  */
 public record PriceTicker(
         Exchange exchange,
         String symbol,
+        String nativeSymbol,
+        String quoteAsset,
         BigDecimal bid,
         BigDecimal ask,
         Instant receivedAt
@@ -22,6 +25,12 @@ public record PriceTicker(
         }
         if (receivedAt == null) {
             throw new IllegalArgumentException("receivedAt must not be null");
+        }
+        if (nativeSymbol == null || nativeSymbol.isEmpty()) {
+            throw new IllegalArgumentException("nativeSymbol must not be null or empty");
+        }
+        if (quoteAsset == null || quoteAsset.isEmpty()) {
+            throw new IllegalArgumentException("quoteAsset must not be null or empty");
         }
     }
 }
