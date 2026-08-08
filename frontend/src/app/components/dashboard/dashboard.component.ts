@@ -18,7 +18,8 @@ import { SpreadTableComponent } from '../spread-table/spread-table.component';
 import { ConnectionStatusComponent } from '../connection-status/connection-status.component';
 import { SettingsDrawerComponent } from '../settings-drawer/settings-drawer.component';
 import { UsdtMarketPickerComponent } from '../usdt-market-picker/usdt-market-picker.component';
-import { AppConfig } from '../../models/spread.model';
+import { OrderBookDrawerComponent } from '../order-book-drawer/order-book-drawer.component';
+import { AppConfig, SpreadOpportunity } from '../../models/spread.model';
 import {
   OpportunityQuickFilter,
   buildRankedOpportunities,
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: AppConfig = {
     ConnectionStatusComponent,
     SettingsDrawerComponent,
     UsdtMarketPickerComponent,
+    OrderBookDrawerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.component.html',
@@ -57,6 +59,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   notional = signal(1000);
   config = signal<AppConfig>(DEFAULT_CONFIG);
   settingsOpen = signal(false);
+  depthOpen = signal(false);
+  selectedRoute = signal<SpreadOpportunity | null>(null);
   quickFilter = signal<OpportunityQuickFilter>('all');
   showBothDirections = signal(false);
   now = signal(Date.now());
@@ -209,12 +213,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   openSettings(trigger: HTMLButtonElement) {
+    this.depthOpen.set(false);
     this.settingsOpen.set(true);
     setTimeout(() => trigger.focus(), 0);
   }
 
   closeSettings() {
     this.settingsOpen.set(false);
+  }
+
+  openDepth(route: SpreadOpportunity) {
+    this.settingsOpen.set(false);
+    this.selectedRoute.set(route);
+    this.depthOpen.set(true);
+  }
+
+  closeDepth() {
+    this.depthOpen.set(false);
   }
 
   setQuickFilter(filter: OpportunityQuickFilter) {

@@ -53,4 +53,15 @@ public interface ExchangeAdapter {
                 .filter(this::supports)
                 .flatMap(this::getTicker);
     }
+
+    /**
+     * Fetch an order-book snapshot for on-demand depth display. Not used in the poll cycle.
+     *
+     * @param internalSymbol internal symbol (e.g. "BTC/USDT")
+     * @param depth          max levels per side
+     * @return Mono emitting OrderBook on success, empty on error or unsupported symbol
+     */
+    default Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        return Mono.empty();
+    }
 }

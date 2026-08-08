@@ -175,6 +175,9 @@ public class KuCoinAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("KuCoin: invalid bid/ask prices for " + internalSymbol);
         }
 
+        BigDecimal bidSize = AdapterJsonUtils.optionalDecimal(data, "bestBidSize");
+        BigDecimal askSize = AdapterJsonUtils.optionalDecimal(data, "bestAskSize");
+
         return new PriceTicker(
                 Exchange.KUCOIN,
                 internalSymbol,
@@ -182,7 +185,10 @@ public class KuCoinAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
-                Instant.now()
+                Instant.now(),
+                bidSize,
+                askSize,
+                AdapterJsonUtils.optionalDecimal(data, "volValue")
         );
     }
 
@@ -227,6 +233,9 @@ public class KuCoinAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("KuCoin: invalid bid/ask prices");
         }
 
+        BigDecimal bidSize = AdapterJsonUtils.optionalDecimal(data, "bestBidSize");
+        BigDecimal askSize = AdapterJsonUtils.optionalDecimal(data, "bestAskSize");
+
         return new PriceTicker(
                 Exchange.KUCOIN,
                 internalSymbol,
@@ -234,6 +243,61 @@ public class KuCoinAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
+                Instant.now(),
+                bidSize,
+                askSize,
+                null
+        );
+    }
+
+    @Override
+    public Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            return Mono.empty();
+        }
+        int levels = depth <= 20 ? 20 : 100;
+        String nativeSymbol = market.getNativeSymbol();
+        String path = levels == 20
+                ? "/api/v1/market/orderbook/level2_20"
+                : "/api/v1/market/orderbook/level2_100";
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(path)
+                        .queryParam("symbol", nativeSymbol)
+                        .build())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("KuCoin: HTTP {} for depth {}", response.statusCode().value(), nativeSymbol);
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .map(json -> parseDepth(json, internalSymbol, market, levels))
+                .onErrorResume(e -> {
+                    log.warn("KuCoin: depth error for {}: {}", internalSymbol, e.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    private OrderBook parseDepth(
+            JsonNode json,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market,
+            int levels
+    ) {
+        JsonNode data = json.get("data");
+        if (data == null || data.isNull() || data.isMissingNode()) {
+            throw new IllegalArgumentException("KuCoin: no depth data");
+        }
+
+        return new OrderBook(
+                Exchange.KUCOIN,
+                internalSymbol,
+                market.getNativeSymbol(),
+                AdapterJsonUtils.parseLevels(data.get("bids"), levels),
+                AdapterJsonUtils.parseLevels(data.get("asks"), levels),
                 Instant.now()
         );
     }

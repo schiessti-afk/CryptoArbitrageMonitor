@@ -65,6 +65,20 @@ class KrakenAdapterTest {
         assertEquals("USD", ticker.quoteAsset());
         assertTrue(ticker.bid().compareTo(BigDecimal.ZERO) > 0);
         assertTrue(ticker.ask().compareTo(BigDecimal.ZERO) > 0);
+        assertEquals(new BigDecimal("1"), ticker.bidSize());
+        assertEquals(new BigDecimal("1"), ticker.askSize());
+        assertNotNull(ticker.quoteVolume24h());
+    }
+
+    @Test
+    void getOrderBook_parsesDepth() throws IOException {
+        String depthFixture = Files.readString(Paths.get("src/test/resources/fixtures/kraken/depth-xxbtzusd.json"));
+        KrakenAdapter adapter = adapterReturning(depthFixture, HttpStatus.OK);
+        var book = adapter.getOrderBook("BTC/USD", 20).block();
+
+        assertNotNull(book);
+        assertEquals(2, book.bids().size());
+        assertEquals(new BigDecimal("64921.9"), book.bids().get(0).price());
     }
 
     @Test

@@ -70,6 +70,28 @@ class BinanceAdapterTest {
                 .findFirst()
                 .orElseThrow()
                 .bid()));
+
+        PriceTicker btc = tickers.stream().filter(t -> t.symbol().equals("BTC/USDT")).findFirst().orElseThrow();
+        assertEquals(new BigDecimal("5.66862000"), btc.bidSize());
+        assertEquals(new BigDecimal("3.84780000"), btc.askSize());
+        assertNull(btc.quoteVolume24h());
+    }
+
+    @Test
+    void getOrderBook_parsesDepth() throws IOException {
+        String depthFixture = Files.readString(Paths.get("src/test/resources/fixtures/binance/depth-btcusd.json"));
+        exchangeProperties = TestExchangeProperties.singleAdapter(
+                "binance",
+                "https://api.binance.com",
+                Map.of("BTC_USD", new String[]{"BTCUSD", "USD"})
+        );
+        BinanceAdapter adapter = adapterReturning(depthFixture, HttpStatus.OK);
+        var book = adapter.getOrderBook("BTC/USD", 20).block();
+
+        assertNotNull(book);
+        assertEquals(2, book.asks().size());
+        assertEquals(new BigDecimal("64943.19"), book.asks().get(0).price());
+        assertEquals(new BigDecimal("0.00147000"), book.asks().get(0).size());
     }
 
     @Test

@@ -60,11 +60,17 @@
                   <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Raw %</th>
                   <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Fees %</th>
                   <th class="border-b border-theme text-right font-semibold" [ngClass]="cellPadding()">Net %</th>
+                  <th class="border-b border-theme text-left font-semibold" [ngClass]="cellPadding()">Liq</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of group.rows; track row.symbol + row.buyExchange + row.sellExchange) {
-                  <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme'">
+                @for (row of group.rows; track routeKey(row)) {
+                  <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme cursor-pointer hover:bg-[var(--row-hover)]'"
+                      [class.route-selected]="isSelected(row)"
+                      (click)="selectRoute(row, $event)"
+                      tabindex="0"
+                      role="button"
+                      [attr.aria-pressed]="isSelected(row)">
                     <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
                     <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
                     <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()"
@@ -80,6 +86,16 @@
                         [class.text-positive]="row.netSpreadPercent > 0.001"
                         [class.text-negative]="row.netSpreadPercent < -0.001">
                       {{ formatNet(row.netSpreadPercent) }}
+                    </td>
+                    <td [ngClass]="cellPadding()">
+                      @if (liquidity(row); as liq) {
+                        <span [class]="liqChipClass(row)" [title]="liq.tooltip">{{ liq.label }}</span>
+                        @if (liq.maxVolume24h; as vol) {
+                          <div class="text-[10px] text-muted tabular-nums mt-0.5">
+                            24h {{ formatCompact(vol) }}
+                          </div>
+                        }
+                      }
                     </td>
                   </tr>
                 }

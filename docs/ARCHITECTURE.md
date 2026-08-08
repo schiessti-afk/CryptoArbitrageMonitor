@@ -99,6 +99,12 @@ Exact native ids live in adapter configuration. Do not treat USDT pairs as USD.
 - If one exchange times out or errors, the cycle **continues with available exchanges**
 - Frontend status: **LIVE (green)** when ≥ **2** exchanges have ticker `receivedAt` within the last **10 seconds**
 
+## Liquidity and order-book depth
+
+- **Poll cycle (unchanged budget):** ticker adapters parse optional `bidSize`, `askSize`, and `quoteVolume24h` from existing batch/single ticker responses where venues expose them. These flow through the spread engine into the STOMP snapshot as `buyAskSize`, `sellBidSize`, and optional 24h volumes per leg.
+- **On-demand depth:** `GET /api/orderbook/route?symbol=&buyExchange=&sellExchange=&depth=20` fetches order-book snapshots from the buy and sell adapters in parallel. Depth is **never** attached to the 3s poll loop.
+- **Persistence:** liquidity and depth are live-only; `spread_log` history rows do not store size or book data.
+
 ## Spread engine
 
 For each symbol, build the **full directed matrix** of exchange pairs where buy exchange ≠ sell exchange:

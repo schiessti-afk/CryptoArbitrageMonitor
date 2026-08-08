@@ -246,6 +246,49 @@ class SpreadCalculationServiceTest {
         assertEquals("USD", opportunity.sellQuoteAsset);
     }
 
+    @Test
+    void testLiquidityFieldsThreadedThrough() {
+        PriceTicker buyTicker = new PriceTicker(
+                Exchange.BINANCE,
+                "BTC/USDT",
+                "BTCUSDT",
+                "USDT",
+                new BigDecimal("100"),
+                new BigDecimal("101"),
+                Instant.now(),
+                new BigDecimal("2.5"),
+                new BigDecimal("1.0"),
+                null
+        );
+        PriceTicker sellTicker = new PriceTicker(
+                Exchange.KRAKEN,
+                "BTC/USDT",
+                "XBTUSDT",
+                "USDT",
+                new BigDecimal("102"),
+                new BigDecimal("103"),
+                Instant.now(),
+                new BigDecimal("3.0"),
+                new BigDecimal("0.8"),
+                new BigDecimal("5000000")
+        );
+
+        var result = service.calculateSpreads(
+                Map.of("BTC/USDT", List.of(buyTicker, sellTicker)),
+                Map.of(Exchange.BINANCE, BigDecimal.ZERO, Exchange.KRAKEN, BigDecimal.ZERO)
+        );
+
+        var opp = result.fullMatrix.stream()
+                .filter(o -> o.buyExchange == Exchange.BINANCE && o.sellExchange == Exchange.KRAKEN)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(new BigDecimal("1.0"), opp.buyAskSize);
+        assertEquals(new BigDecimal("3.0"), opp.sellBidSize);
+        assertNull(opp.buyQuoteVolume24h);
+        assertEquals(new BigDecimal("5000000"), opp.sellQuoteVolume24h);
+    }
+
     /**
      * The invariant the whole USD/USDT split exists to guarantee: no route in the matrix ever
      * pairs a USD leg with a USDT leg. calculateSpreads groups tickers by internal symbol

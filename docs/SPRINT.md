@@ -230,6 +230,13 @@ A new developer can clone, run `docker compose up --build`, and see live indicat
 
 ---
 
+## Liquidity and depth (post-Sprint 3)
+
+- **Basic liquidity** — bid/ask sizes and 24h quote volume (when present in existing ticker JSON) are parsed into the live STOMP snapshot; no extra poll traffic for most venues
+- **Order-book depth** — `GET /api/orderbook/route` fetches buy-venue asks and sell-venue bids on demand when the user selects a route in the dashboard
+
+---
+
 ## Explicitly out of sprint scope
 
-Trade execution, private API keys, user accounts, USDT-as-USD shortcuts, Redis/Kafka/microservices, cloud deployment, advanced charting, order-book depth, withdrawal/network fees, and notifications.
+Trade execution, private API keys, user accounts, USDT-as-USD shortcuts, Redis/Kafka/microservices, cloud deployment, advanced charting, withdrawal/network fees, and notifications.

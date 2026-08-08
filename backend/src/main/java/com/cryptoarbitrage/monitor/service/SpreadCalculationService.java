@@ -32,6 +32,10 @@ public class SpreadCalculationService {
         public final BigDecimal sellPrice;
         public final BigDecimal rawSpreadPercent;
         public final BigDecimal netSpreadPercent;
+        public final BigDecimal buyAskSize;
+        public final BigDecimal sellBidSize;
+        public final BigDecimal buyQuoteVolume24h;
+        public final BigDecimal sellQuoteVolume24h;
 
         public SpreadOpportunity(
                 String symbol,
@@ -44,7 +48,11 @@ public class SpreadCalculationService {
                 BigDecimal buyPrice,
                 BigDecimal sellPrice,
                 BigDecimal rawSpreadPercent,
-                BigDecimal netSpreadPercent
+                BigDecimal netSpreadPercent,
+                BigDecimal buyAskSize,
+                BigDecimal sellBidSize,
+                BigDecimal buyQuoteVolume24h,
+                BigDecimal sellQuoteVolume24h
         ) {
             this.symbol = symbol;
             this.buyExchange = buyExchange;
@@ -57,6 +65,10 @@ public class SpreadCalculationService {
             this.sellPrice = sellPrice;
             this.rawSpreadPercent = rawSpreadPercent;
             this.netSpreadPercent = netSpreadPercent;
+            this.buyAskSize = buyAskSize;
+            this.sellBidSize = sellBidSize;
+            this.buyQuoteVolume24h = buyQuoteVolume24h;
+            this.sellQuoteVolume24h = sellQuoteVolume24h;
         }
     }
 
@@ -167,7 +179,11 @@ public class SpreadCalculationService {
                 buyPrice,
                 sellPrice,
                 rawSpreadPercent,
-                netSpreadPercent
+                netSpreadPercent,
+                buyTicker.askSize(),
+                sellTicker.bidSize(),
+                buyTicker.quoteVolume24h(),
+                sellTicker.quoteVolume24h()
         );
     }
 }

@@ -20,14 +20,23 @@
         <tr class="bg-muted-row text-left text-muted text-xs uppercase tracking-wider">
           <th class="p-2 border-b border-theme font-semibold">Symbol</th>
           <th class="p-2 border-b border-theme font-semibold">Route</th>
+          <th class="p-2 border-b border-theme font-semibold">Liq</th>
           <th class="p-2 border-b border-theme text-right font-semibold">Net %</th>
           <th class="p-2 border-b border-theme text-right font-semibold">Est. profit</th>
           <th class="p-2 border-b border-theme text-right font-semibold">Age</th>
         </tr>
       </thead>
       <tbody>
-        @for (opp of opportunities(); track opp.symbol + opp.buyExchange + opp.sellExchange) {
-          <tr [ngClass]="getClasses(opp.netSpreadPercent)" class="border-b border-theme last:border-b-0">
+        @for (opp of opportunities(); track routeKey(opp)) {
+          <tr [ngClass]="getClasses(opp.netSpreadPercent)"
+              class="border-b border-theme last:border-b-0 cursor-pointer hover:bg-[var(--row-hover)] transition-colors"
+              [class.route-selected]="isSelected(opp)"
+              (click)="selectRoute(opp)"
+              (keydown.enter)="selectRoute(opp)"
+              tabindex="0"
+              role="button"
+              [attr.aria-pressed]="isSelected(opp)"
+              [attr.aria-label]="'View depth for ' + opp.symbol + ' ' + opp.buyExchange + ' to ' + opp.sellExchange">
             <td class="font-semibold tabular-nums" [ngClass]="rowPadding()">{{ opp.symbol }}</td>
             <td [ngClass]="rowPadding()">
               <span class="font-medium">{{ opp.buyExchange }}</span>
@@ -38,6 +47,16 @@
                 {{ opp.buyPrice | number:priceFormat(opp.buyPrice) }} → {{ opp.sellPrice | number:priceFormat(opp.sellPrice) }}
               </div>
             </td>
+            <td [ngClass]="rowPadding()">
+              @if (liquidity(opp); as liq) {
+                <span [class]="liqChipClass(opp)" [title]="liq.tooltip">{{ liq.label }}</span>
+                @if (liq.maxVolume24h; as vol) {
+                  <div class="text-[10px] text-muted tabular-nums mt-0.5">
+                    24h {{ formatCompact(vol) }} {{ quoteAsset() }}
+                  </div>
+                }
+              }
+            </td>
             <td class="text-right font-bold tabular-nums"
                 [ngClass]="[rowPadding(), getTextClass(opp.netSpreadPercent)]"
                 [appFlashOnChange]="opp.netSpreadPercent">
@@ -45,7 +64,7 @@
             </td>
             <td class="text-right tabular-nums" [ngClass]="rowPadding()"
                 [appFlashOnChange]="profit(opp)"
-                [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees and fill depth.'">
+                [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees.'">
               {{ formatProfitValue(opp) }}
             </td>
             <td class="text-right text-muted text-xs tabular-nums" [ngClass]="rowPadding()">
@@ -58,7 +77,7 @@
           </tr>
           @if (coverageMessage(opp.symbol); as msg) {
             <tr>
-              <td colspan="5" class="p-2 text-xs border-b border-theme"
+              <td colspan="6" class="p-2 text-xs border-b border-theme"
                   style="background: var(--warning-bg); color: var(--warning)">
                 {{ msg }}
               </td>
@@ -68,4 +87,5 @@
       </tbody>
     </table>
   </div>
+  <p class="text-xs text-muted mt-2">Click a route to inspect order-book depth.</p>
 }

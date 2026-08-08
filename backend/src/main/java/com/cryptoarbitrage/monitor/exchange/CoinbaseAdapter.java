@@ -94,6 +94,13 @@ public class CoinbaseAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Coinbase: invalid bid/ask prices");
         }
 
+        BigDecimal quoteVolume24h = null;
+        BigDecimal volume = AdapterJsonUtils.optionalDecimal(json, "volume");
+        BigDecimal price = AdapterJsonUtils.optionalDecimal(json, "price");
+        if (volume != null && price != null) {
+            quoteVolume24h = volume.multiply(price);
+        }
+
         return new PriceTicker(
                 Exchange.COINBASE,
                 internalSymbol,
@@ -101,7 +108,45 @@ public class CoinbaseAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
-                Instant.now()
+                Instant.now(),
+                null,
+                null,
+                quoteVolume24h
         );
+    }
+
+    @Override
+    public Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            return Mono.empty();
+        }
+        int limit = Math.max(1, Math.min(depth, 50));
+        String nativeSymbol = market.getNativeSymbol();
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/products/{productId}/book")
+                        .queryParam("level", 2)
+                        .build(nativeSymbol))
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("Coinbase: HTTP {} for depth {}", response.statusCode().value(), nativeSymbol);
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .map(json -> new OrderBook(
+                        Exchange.COINBASE,
+                        internalSymbol,
+                        nativeSymbol,
+                        AdapterJsonUtils.parseLevels(json.get("bids"), limit),
+                        AdapterJsonUtils.parseLevels(json.get("asks"), limit),
+                        Instant.now()
+                ))
+                .onErrorResume(e -> {
+                    log.warn("Coinbase: depth error for {}: {}", internalSymbol, e.getMessage());
+                    return Mono.empty();
+                });
     }
 }

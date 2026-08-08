@@ -77,6 +77,13 @@
     [symbols]="pollPreferences.trackedSymbols().length ? pollPreferences.trackedSymbols() : trackedSymbols()"
     (closed)="closeSettings()" />
 
+  <app-order-book-drawer
+    [open]="depthOpen()"
+    [route]="selectedRoute()"
+    [notional]="notional()"
+    [quoteAsset]="quoteAsset.selected()"
+    (closed)="closeDepth()" />
+
   <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
     @if (tooFewVenues()) {
       <div class="alert-warning flex items-center justify-between gap-3 flex-wrap">
@@ -152,7 +159,9 @@
         [loading]="!websocket.snapshot()"
         [filteredEmpty]="hasActiveFilters() && rankedOpportunities().length === 0"
         [density]="density()"
-        (clearFilters)="settings.clearFilters()" />
+        [selectedRoute]="selectedRoute()"
+        (clearFilters)="settings.clearFilters()"
+        (routeSelected)="openDepth($event)" />
     </section>
 
     <!-- Matrix -->
@@ -169,7 +178,9 @@
         [coverage]="coverageForQuote()"
         [loading]="!websocket.snapshot()"
         [settings]="settings.settings()"
-        [density]="density()" />
+        [density]="density()"
+        [selectedRoute]="selectedRoute()"
+        (routeSelected)="openDepth($event)" />
     </section>
 
     <!-- Fees panel -->
@@ -203,10 +214,9 @@
     <footer class="text-xs text-muted border-t border-theme pt-4 pb-8 flex items-start gap-3">
       <img src="favicon-32x32.png" width="20" height="20" alt="" class="rounded mt-0.5 shrink-0 opacity-80" />
       <p>
-        <strong class="text-[var(--text)]">Indicative comparison only.</strong> Figures exclude withdrawal and network fees,
-        transfer time, latency, and order-book depth beyond top-of-book. Estimated profit uses
+        <strong class="text-[var(--text)]">Indicative comparison only.</strong> Top-of-book liquidity chips compare visible size to your notional; click a route for on-demand depth. Figures still exclude withdrawal and network fees, transfer time, latency, and full slippage modeling. Estimated profit uses
         <code class="text-xs">notional × net% ÷ 100</code>, assuming the full notional fills at the
-        quoted best bid/ask on both legs — not achievable size at that price.
+        quoted best bid/ask on both legs.
       </p>
     </footer>
   </main>

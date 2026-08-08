@@ -2,7 +2,7 @@
 
 Monitor live cryptocurrency bid/ask prices across **Binance**, **Kraken**, **Coinbase**, **Bitget**, and **KuCoin**, compute indicative cross-venue spreads after taker fees, and stream results to a real-time dashboard.
 
-This application does **not** execute trades. Displayed values are **indicative cross-venue arbitrage opportunities** based on public top-of-book prices and configurable fee estimates. They do not model order-book depth, slippage, withdrawal fees, transfer time, or execution risk.
+This application does **not** execute trades. Displayed values are **indicative cross-venue arbitrage opportunities** based on public top-of-book prices and configurable fee estimates. The dashboard shows **top-of-book liquidity chips** and **on-demand order-book depth** when you select a route; these remain indicative and do not model slippage, withdrawal fees, transfer time, or execution risk.
 
 ## Features
 
@@ -22,6 +22,8 @@ This application does **not** execute trades. Displayed values are **indicative 
 - User-selectable hypothetical investment size (default **$1,000**)
 - Live updates over **WebSocket + STOMP + SockJS** (frontend does not poll)
 - **Flash-on-change** — matrix and opportunity cells briefly pulse when prices or spreads update
+- **Liquidity chips** — Thin / OK / Deep grades at top-of-book vs your notional, with optional 24h quote volume when venues expose it in ticker payloads
+- **Order-book depth drawer** — click any route to load 20-level ask/bid ladders for the buy and sell venues (on-demand REST; not part of the 3s poll cycle)
 - Historical spread log with bounded REST queries
 - Graceful degradation when an exchange fails
 - **429 / timeout backoff** — rate-limited or timed-out venues are skipped for an exponential window (15s–120s) while others keep polling
@@ -192,7 +194,7 @@ Live matrix updates: STOMP topic `/topic/spreads` (SockJS-enabled endpoint). Sna
 
 V1 does **not** account for:
 
-- Order-book depth or slippage
+- Slippage beyond visible depth levels
 - Withdrawal, deposit, or network fees
 - Transfer delays or withdrawal restrictions
 - Account-specific fee tiers

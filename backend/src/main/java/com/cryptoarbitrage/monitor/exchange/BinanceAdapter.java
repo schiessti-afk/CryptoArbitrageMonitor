@@ -154,6 +154,9 @@ public class BinanceAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Binance: invalid bid/ask prices");
         }
 
+        BigDecimal bidSize = AdapterJsonUtils.optionalDecimal(json, "bidQty");
+        BigDecimal askSize = AdapterJsonUtils.optionalDecimal(json, "askQty");
+
         return new PriceTicker(
                 Exchange.BINANCE,
                 internalSymbol,
@@ -161,7 +164,46 @@ public class BinanceAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
-                Instant.now()
+                Instant.now(),
+                bidSize,
+                askSize,
+                null
         );
+    }
+
+    @Override
+    public Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            return Mono.empty();
+        }
+        int limit = Math.max(1, Math.min(depth, 100));
+        String nativeSymbol = market.getNativeSymbol();
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v3/depth")
+                        .queryParam("symbol", nativeSymbol)
+                        .queryParam("limit", limit)
+                        .build())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("Binance: HTTP {} for depth {}", response.statusCode().value(), nativeSymbol);
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .map(json -> new OrderBook(
+                        Exchange.BINANCE,
+                        internalSymbol,
+                        nativeSymbol,
+                        AdapterJsonUtils.parseLevels(json.get("bids"), limit),
+                        AdapterJsonUtils.parseLevels(json.get("asks"), limit),
+                        Instant.now()
+                ))
+                .onErrorResume(e -> {
+                    log.warn("Binance: depth error for {}: {}", internalSymbol, e.getMessage());
+                    return Mono.empty();
+                });
     }
 }

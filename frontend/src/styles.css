@@ -247,6 +247,43 @@
     @apply opacity-60 line-through;
   }
 
+  .chip-liq-thin {
+    background-color: var(--warning-bg);
+    color: var(--warning);
+    border-color: transparent;
+  }
+
+  .chip-liq-ok {
+    background-color: var(--neutral-bg);
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .chip-liq-deep {
+    background-color: var(--positive-bg);
+    color: var(--positive);
+    border-color: transparent;
+  }
+
+  .depth-bar {
+    @apply h-1.5 rounded-sm;
+    background: var(--accent-muted);
+  }
+
+  .depth-bar-fill {
+    @apply h-full rounded-sm;
+    background: var(--accent);
+  }
+
+  .route-selected {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .fill-marker {
+    border-top: 2px dashed var(--accent);
+  }
+
   .status-badge {
     @apply inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-bold tracking-wide uppercase border;
   }

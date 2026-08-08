@@ -18,13 +18,17 @@ public record SpreadDto(
         BigDecimal sellPrice,
         BigDecimal rawSpreadPercent,
         BigDecimal netSpreadPercent,
-        Instant calculatedAt
+        Instant calculatedAt,
+        BigDecimal buyAskSize,
+        BigDecimal sellBidSize,
+        BigDecimal buyQuoteVolume24h,
+        BigDecimal sellQuoteVolume24h
 ) {
     public static SpreadDto from(SpreadLog log) {
         return new SpreadDto(
                 log.getSymbol(),
                 log.getBuyExchange(),
-                null,  // Native symbols not stored in SpreadLog
+                null,
                 null,
                 log.getSellExchange(),
                 null,
@@ -33,7 +37,11 @@ public record SpreadDto(
                 log.getSellPrice(),
                 log.getRawSpreadPercent(),
                 log.getNetSpreadPercent(),
-                log.getCalculatedAt()
+                log.getCalculatedAt(),
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -50,7 +58,11 @@ public record SpreadDto(
                 opp.sellPrice,
                 opp.rawSpreadPercent,
                 opp.netSpreadPercent,
-                Instant.now()
+                Instant.now(),
+                opp.buyAskSize,
+                opp.sellBidSize,
+                opp.buyQuoteVolume24h,
+                opp.sellQuoteVolume24h
         );
     }
 }

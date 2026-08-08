@@ -11,6 +11,10 @@ export interface SpreadOpportunity {
   rawSpreadPercent: number;
   netSpreadPercent: number;
   calculatedAt?: string;
+  buyAskSize?: number;
+  sellBidSize?: number;
+  buyQuoteVolume24h?: number;
+  sellQuoteVolume24h?: number;
 }
 
 export type ExchangeFreshness = 'FRESH' | 'STALE' | 'NEVER';

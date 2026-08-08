@@ -168,6 +168,10 @@ public class BitgetAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Bitget: invalid bid/ask prices for " + internalSymbol);
         }
 
+        BigDecimal bidSize = AdapterJsonUtils.optionalDecimal(ticker, "bidSz");
+        BigDecimal askSize = AdapterJsonUtils.optionalDecimal(ticker, "askSz");
+        BigDecimal quoteVolume24h = AdapterJsonUtils.optionalDecimal(ticker, "quoteVolume");
+
         return new PriceTicker(
                 Exchange.BITGET,
                 internalSymbol,
@@ -175,7 +179,10 @@ public class BitgetAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
-                Instant.now()
+                Instant.now(),
+                bidSize,
+                askSize,
+                quoteVolume24h
         );
     }
 
@@ -217,5 +224,62 @@ public class BitgetAdapter implements ExchangeAdapter {
 
         JsonNode ticker = data.get(0);
         return parseTickerNode(ticker, internalSymbol, market);
+    }
+
+    @Override
+    public Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            return Mono.empty();
+        }
+        int limit = Math.max(1, Math.min(depth, 100));
+        String nativeSymbol = market.getNativeSymbol();
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v2/spot/market/orderbook")
+                        .queryParam("symbol", nativeSymbol)
+                        .queryParam("type", "step0")
+                        .queryParam("limit", limit)
+                        .build())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("Bitget: HTTP {} for depth {}", response.statusCode().value(), nativeSymbol);
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .map(json -> parseDepth(json, internalSymbol, market, limit))
+                .onErrorResume(e -> {
+                    log.warn("Bitget: depth error for {}: {}", internalSymbol, e.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    private OrderBook parseDepth(
+            JsonNode json,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market,
+            int limit
+    ) {
+        JsonNode codeNode = json.get("code");
+        if (codeNode == null || !SUCCESS_CODE.equals(codeNode.asText())) {
+            String msg = json.has("msg") ? json.get("msg").asText() : "unknown error";
+            throw new IllegalArgumentException("Bitget error: " + msg);
+        }
+
+        JsonNode data = json.get("data");
+        if (data == null || data.isMissingNode()) {
+            throw new IllegalArgumentException("Bitget: missing depth data");
+        }
+
+        return new OrderBook(
+                Exchange.BITGET,
+                internalSymbol,
+                market.getNativeSymbol(),
+                AdapterJsonUtils.parseLevels(data.get("bids"), limit),
+                AdapterJsonUtils.parseLevels(data.get("asks"), limit),
+                Instant.now()
+        );
     }
 }

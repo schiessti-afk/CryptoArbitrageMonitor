@@ -66,6 +66,19 @@ class KuCoinAdapterTest {
         assertEquals("USDT", ticker.quoteAsset());
         assertEquals(new BigDecimal("65011.3"), ticker.bid());
         assertEquals(new BigDecimal("65011.4"), ticker.ask());
+        assertEquals(new BigDecimal("0.70994452"), ticker.bidSize());
+        assertEquals(new BigDecimal("0.21068986"), ticker.askSize());
+    }
+
+    @Test
+    void getOrderBook_parsesDepth() throws IOException {
+        String depthFixture = Files.readString(Paths.get("src/test/resources/fixtures/kucoin/depth-btc-usdt.json"));
+        KuCoinAdapter adapter = adapterReturning(depthFixture, HttpStatus.OK);
+        var book = adapter.getOrderBook("BTC/USDT", 20).block();
+
+        assertNotNull(book);
+        assertEquals(2, book.bids().size());
+        assertEquals(new BigDecimal("65011.3"), book.bids().get(0).price());
     }
 
     /**

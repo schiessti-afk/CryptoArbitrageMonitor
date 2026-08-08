@@ -1,0 +1,139 @@
+@if (open()) {
+  <div class="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true" aria-label="Order book depth">
+    <button type="button" class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="close()" aria-label="Close depth panel"></button>
+
+    <aside class="relative z-50 w-full max-w-xl h-full panel-elevated shadow-2xl overflow-y-auto focus:outline-none border-l border-theme">
+      <div class="sticky top-0 z-10 panel-elevated border-b border-theme px-4 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="text-lg font-bold tracking-tight truncate">
+            @if (route(); as r) {
+              {{ r.symbol }} · {{ r.buyExchange }} → {{ r.sellExchange }}
+            } @else {
+              Order book depth
+            }
+          </h2>
+          <p class="text-xs text-muted">Fill estimate at {{ notional() | number:'1.0-0' }} {{ quoteAsset() }} notional · {{ ageLabel() }}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" class="btn-secondary text-xs px-2 py-1" (click)="refresh()" [disabled]="loading()">
+            Refresh
+          </button>
+          <button type="button" class="btn-icon" (click)="close()" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true">
+              <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-4 space-y-4">
+        @if (loading() && !data()) {
+          <div class="space-y-2" aria-busy="true">
+            <div class="skeleton h-32"></div>
+            <div class="skeleton h-32"></div>
+          </div>
+        }
+
+        @if (error(); as err) {
+          <div class="alert-warning text-sm">{{ err }}</div>
+        }
+
+        @if (data()?.buyBookError; as buyErr) {
+          <div class="text-xs text-warning">{{ buyErr }}</div>
+        }
+        @if (data()?.sellBookError; as sellErr) {
+          <div class="text-xs text-warning">{{ sellErr }}</div>
+        }
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Buy venue asks -->
+          <section>
+            <h3 class="text-sm font-semibold mb-2">
+              Asks @if (route(); as r) { <span class="text-muted font-normal">{{ r.buyExchange }}</span> }
+            </h3>
+            @if (askLevels().length === 0) {
+              <div class="empty-state text-xs py-6">No ask levels</div>
+            } @else {
+              <div class="rounded-lg border border-theme overflow-hidden">
+                <table class="w-full text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-muted-row text-muted uppercase tracking-wider">
+                      <th class="p-2 text-left font-semibold">Price</th>
+                      <th class="p-2 text-right font-semibold">Size</th>
+                      <th class="p-2 text-right font-semibold">Quote</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (level of askLevels(); track level.price; let i = $index) {
+                      <tr class="border-t border-theme data-row"
+                          [class.fill-marker]="askFillIndex() === i">
+                        <td class="p-2 font-mono tabular-nums">{{ level.price | number:priceFormat(level.price) }}</td>
+                        <td class="p-2 text-right tabular-nums">{{ level.size | number:'1.2-6' }}</td>
+                        <td class="p-2 text-right tabular-nums">
+                          <div>{{ formatCompact(level.quoteNotional) }}</div>
+                          <div class="depth-bar mt-1">
+                            <div class="depth-bar-fill" [style.width.%]="level.barPercent"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (askFillIndex() === null) {
+                <p class="text-[10px] text-warning mt-1">Notional exceeds visible ask depth.</p>
+              } @else {
+                <p class="text-[10px] text-muted mt-1">Dashed row ≈ cumulative fill for notional.</p>
+              }
+            }
+          </section>
+
+          <!-- Sell venue bids -->
+          <section>
+            <h3 class="text-sm font-semibold mb-2">
+              Bids @if (route(); as r) { <span class="text-muted font-normal">{{ r.sellExchange }}</span> }
+            </h3>
+            @if (bidLevels().length === 0) {
+              <div class="empty-state text-xs py-6">No bid levels</div>
+            } @else {
+              <div class="rounded-lg border border-theme overflow-hidden">
+                <table class="w-full text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-muted-row text-muted uppercase tracking-wider">
+                      <th class="p-2 text-left font-semibold">Price</th>
+                      <th class="p-2 text-right font-semibold">Size</th>
+                      <th class="p-2 text-right font-semibold">Quote</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (level of bidLevels(); track level.price; let i = $index) {
+                      <tr class="border-t border-theme data-row"
+                          [class.fill-marker]="bidFillIndex() === i">
+                        <td class="p-2 font-mono tabular-nums">{{ level.price | number:priceFormat(level.price) }}</td>
+                        <td class="p-2 text-right tabular-nums">{{ level.size | number:'1.2-6' }}</td>
+                        <td class="p-2 text-right tabular-nums">
+                          <div>{{ formatCompact(level.quoteNotional) }}</div>
+                          <div class="depth-bar mt-1">
+                            <div class="depth-bar-fill" [style.width.%]="level.barPercent"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (bidFillIndex() === null) {
+                <p class="text-[10px] text-warning mt-1">Notional exceeds visible bid depth.</p>
+              }
+            }
+          </section>
+        </div>
+
+        <p class="text-xs text-muted border-t border-theme pt-3">
+          Indicative depth only — no slippage model, fees on deeper levels, or execution simulation.
+        </p>
+      </div>
+    </aside>
+  </div>
+}

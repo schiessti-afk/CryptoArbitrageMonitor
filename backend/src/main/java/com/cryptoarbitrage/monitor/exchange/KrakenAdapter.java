@@ -159,6 +159,28 @@ public class KrakenAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Kraken: invalid bid/ask prices for " + internalSymbol);
         }
 
+        return buildTicker(ticker, internalSymbol, market, bid, ask);
+    }
+
+    private PriceTicker buildTicker(
+            JsonNode ticker,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market,
+            BigDecimal bid,
+            BigDecimal ask
+    ) {
+        BigDecimal bidSize = AdapterJsonUtils.optionalDecimalFromArray(ticker.get("b"), 1);
+        BigDecimal askSize = AdapterJsonUtils.optionalDecimalFromArray(ticker.get("a"), 1);
+        BigDecimal quoteVolume24h = null;
+        JsonNode volumeArray = ticker.get("v");
+        JsonNode lastArray = ticker.get("c");
+        if (volumeArray != null && volumeArray.isArray() && volumeArray.size() > 1
+                && lastArray != null && lastArray.isArray() && lastArray.size() > 0) {
+            BigDecimal baseVolume24h = new BigDecimal(volumeArray.get(1).asText());
+            BigDecimal lastPrice = new BigDecimal(lastArray.get(0).asText());
+            quoteVolume24h = baseVolume24h.multiply(lastPrice);
+        }
+
         return new PriceTicker(
                 Exchange.KRAKEN,
                 internalSymbol,
@@ -166,7 +188,10 @@ public class KrakenAdapter implements ExchangeAdapter {
                 market.getQuoteAsset(),
                 bid,
                 ask,
-                Instant.now()
+                Instant.now(),
+                bidSize,
+                askSize,
+                quoteVolume24h
         );
     }
 
@@ -227,13 +252,65 @@ public class KrakenAdapter implements ExchangeAdapter {
             throw new IllegalArgumentException("Kraken: invalid bid/ask prices");
         }
 
-        return new PriceTicker(
+        return buildTicker(ticker, internalSymbol, market, bid, ask);
+    }
+
+    @Override
+    public Mono<OrderBook> getOrderBook(String internalSymbol, int depth) {
+        ExchangeProperties.MarketConfig market = market(internalSymbol);
+        if (market == null) {
+            return Mono.empty();
+        }
+        int count = Math.max(1, Math.min(depth, 500));
+        String nativeSymbol = market.getNativeSymbol();
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/0/public/Depth")
+                        .queryParam("pair", nativeSymbol)
+                        .queryParam("count", count)
+                        .build())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), response -> {
+                    log.warn("Kraken: HTTP {} for depth {}", response.statusCode().value(), nativeSymbol);
+                    return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
+                })
+                .bodyToMono(String.class)
+                .map(this::parseJson)
+                .map(json -> parseDepth(json, internalSymbol, market, count))
+                .onErrorResume(e -> {
+                    log.warn("Kraken: depth error for {}: {}", internalSymbol, e.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    private OrderBook parseDepth(
+            JsonNode json,
+            String internalSymbol,
+            ExchangeProperties.MarketConfig market,
+            int count
+    ) {
+        JsonNode errorArray = json.get("error");
+        if (errorArray != null && errorArray.isArray() && !errorArray.isEmpty()) {
+            throw new IllegalArgumentException("Kraken error: " + errorArray.get(0).asText());
+        }
+
+        JsonNode result = json.get("result");
+        if (result == null || !result.isObject()) {
+            throw new IllegalArgumentException("Kraken: missing depth result");
+        }
+
+        JsonNode book = result.get(market.getNativeSymbol());
+        if (book == null || book.isMissingNode()) {
+            throw new IllegalArgumentException("Kraken: depth not found for " + market.getNativeSymbol());
+        }
+
+        return new OrderBook(
                 Exchange.KRAKEN,
                 internalSymbol,
-                nativeSymbol,
-                market.getQuoteAsset(),
-                bid,
-                ask,
+                market.getNativeSymbol(),
+                AdapterJsonUtils.parseLevels(book.get("bids"), count),
+                AdapterJsonUtils.parseLevels(book.get("asks"), count),
                 Instant.now()
         );
     }

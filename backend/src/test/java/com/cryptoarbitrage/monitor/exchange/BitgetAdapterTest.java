@@ -66,6 +66,20 @@ class BitgetAdapterTest {
         assertEquals("USDT", ticker.quoteAsset());
         assertEquals(new BigDecimal("65014.21"), ticker.bid());
         assertEquals(new BigDecimal("65014.22"), ticker.ask());
+        assertEquals(new BigDecimal("5.142685"), ticker.bidSize());
+        assertEquals(new BigDecimal("0.420206"), ticker.askSize());
+        assertEquals(new BigDecimal("63217571.218056"), ticker.quoteVolume24h());
+    }
+
+    @Test
+    void getOrderBook_parsesDepth() throws IOException {
+        String depthFixture = Files.readString(Paths.get("src/test/resources/fixtures/bitget/depth-btcusdt.json"));
+        BitgetAdapter adapter = adapterReturning(depthFixture, HttpStatus.OK);
+        var book = adapter.getOrderBook("BTC/USDT", 20).block();
+
+        assertNotNull(book);
+        assertEquals(2, book.asks().size());
+        assertEquals(new BigDecimal("65014.22"), book.asks().get(0).price());
     }
 
     @Test

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity, SymbolCoverage } from '../../models/spread.model';
 import { DashboardSettings } from '../../services/settings.service';
@@ -6,6 +6,11 @@ import { FlashOnChangeDirective } from '../../directives/flash-on-change.directi
 import { getSpreadState, getStateBackgroundClass } from '../../utils/spread-state';
 import { isBelowThreshold } from '../../utils/dashboard-filter';
 import { formatSignedPercent, priceDecimals } from '../../utils/format-numbers';
+import {
+  formatCompact,
+  liquidityChipClass,
+  summarizeLiquidity,
+} from '../../utils/liquidity';
 
 @Component({
   selector: 'app-spread-table',
@@ -32,6 +37,9 @@ export class SpreadTableComponent {
     defaultNotionalOverride: null,
   });
   density = input<'comfortable' | 'compact'>('comfortable');
+  selectedRoute = input<SpreadOpportunity | null>(null);
+
+  routeSelected = output<SpreadOpportunity>();
 
   /** Symbol groups expanded in the matrix accordion — collapsed by default. */
   private expandedSymbols = signal<Set<string>>(new Set());
@@ -120,5 +128,34 @@ export class SpreadTableComponent {
     if (!cov || cov.freshVenues >= 2) return null;
     if (cov.freshVenues === 0) return `No venues reporting — cannot compute ${symbol} spreads.`;
     return `Only ${cov.freshVenues} venue reporting — needs 2 for ${symbol}.`;
+  }
+
+  liquidity(opp: SpreadOpportunity) {
+    return summarizeLiquidity(opp, this.notional(), this.quoteAsset());
+  }
+
+  liqChipClass(opp: SpreadOpportunity) {
+    return liquidityChipClass(this.liquidity(opp).grade);
+  }
+
+  formatCompact = formatCompact;
+
+  isSelected(opp: SpreadOpportunity): boolean {
+    const selected = this.selectedRoute();
+    if (!selected) return false;
+    return (
+      selected.symbol === opp.symbol &&
+      selected.buyExchange === opp.buyExchange &&
+      selected.sellExchange === opp.sellExchange
+    );
+  }
+
+  selectRoute(opp: SpreadOpportunity, event: Event) {
+    event.stopPropagation();
+    this.routeSelected.emit(opp);
+  }
+
+  routeKey(opp: SpreadOpportunity): string {
+    return `${opp.symbol}|${opp.buyExchange}|${opp.sellExchange}`;
   }
 }
