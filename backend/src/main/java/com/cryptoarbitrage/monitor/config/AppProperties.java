@@ -15,6 +15,9 @@ public class AppProperties {
     public static class Polling {
         private long intervalMs = 3000;
         private long freshnessWindowMs = 10000;
+        /** First skip window after a 429/418 or timeout (doubles up to {@link #backoffMaxMs}). */
+        private long backoffInitialMs = 15_000;
+        private long backoffMaxMs = 120_000;
         /** USDT markets polled before the client sends preferences (matches frontend major-5 default). */
         private java.util.List<String> defaultUsdtMajors = java.util.List.of(
                 "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT"
@@ -34,6 +37,22 @@ public class AppProperties {
 
         public void setFreshnessWindowMs(long freshnessWindowMs) {
             this.freshnessWindowMs = freshnessWindowMs;
+        }
+
+        public long getBackoffInitialMs() {
+            return backoffInitialMs;
+        }
+
+        public void setBackoffInitialMs(long backoffInitialMs) {
+            this.backoffInitialMs = backoffInitialMs;
+        }
+
+        public long getBackoffMaxMs() {
+            return backoffMaxMs;
+        }
+
+        public void setBackoffMaxMs(long backoffMaxMs) {
+            this.backoffMaxMs = backoffMaxMs;
         }
 
         public java.util.List<String> getDefaultUsdtMajors() {

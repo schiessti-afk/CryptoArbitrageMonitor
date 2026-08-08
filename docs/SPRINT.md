@@ -130,7 +130,7 @@ Full breakdown in [SPRINT3-PLAN.md](./SPRINT3-PLAN.md). Implementation notes: [S
 - [x] Mirrored A→B / B→A routes collapsed by default, with a show-both toggle
 - [x] Quick-filter chips: All (default) / Positive net / Above threshold
 - [x] Magnitude-aware price precision, tabular figures, quote-aware currency labels
-- [ ] Flash-on-change cell animation (CSS helper present; not wired per-cell yet)
+- [x] Flash-on-change cell animation (wired via `appFlashOnChange` directive)
 - [x] Dark mode and density rendered across all components via a semantic token layer
 - [x] Distinct loading / filtered-empty / no-data states, using Phase 1 coverage data
 - [x] Accessibility pass: focus management in the drawer, `aria-live` on the badge only, responsive matrix
@@ -176,6 +176,10 @@ Full breakdown in [SPRINT-USDT-EXPANSION.md](./SPRINT-USDT-EXPANSION.md).
 > Renumbered from Sprint 3 on 2026-08-08 when the sprint above was inserted. The Sprint 1 and
 > Sprint 2 documents still refer to this work as "Sprint 3" and were left as written.
 
+> **Partial early delivery:** flash-on-change (Sprint 3 Phase 3) and exchange 429/timeout backoff
+> were implemented before the Docker/Nginx ship work. Behavior is documented in
+> [ARCHITECTURE.md](./ARCHITECTURE.md#error-handling) and the README.
+
 ### Deliverables
 
 - [ ] `docker-compose.yml`: postgres, backend, frontend — Postgres only so far
@@ -183,7 +187,7 @@ Full breakdown in [SPRINT-USDT-EXPANSION.md](./SPRINT-USDT-EXPANSION.md).
 - [ ] Nginx routing for SPA + API/WebSocket proxy as required
 - [x] Env-based DB config; externalized exchange URLs/timeouts/fees
 - [x] Documented exchange API limit summary (see Architecture)
-- [ ] Backoff / graceful handling for timeouts and `429`s
+- [x] Backoff / graceful handling for timeouts and `429`s (`ExchangeBackoffFilter` + `ExchangeBackoffStore`)
 - [ ] README quick start verified from clean checkout
 - [x] MIT `LICENSE`
 - [ ] Final pass on logging and API error responses

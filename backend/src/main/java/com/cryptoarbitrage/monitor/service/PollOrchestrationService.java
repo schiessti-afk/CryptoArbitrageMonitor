@@ -36,6 +36,7 @@ public class PollOrchestrationService {
     private final SpreadCalculationService calculationService;
     private final FeeService feeService;
     private final ExchangeAvailabilityStore availabilityStore;
+    private final ExchangeBackoffStore backoffStore;
     private final MarketSnapshotStore snapshotStore;
     private final SpreadPublisher spreadPublisher;
     private final TrackedPairRepository trackedPairRepository;
@@ -49,6 +50,7 @@ public class PollOrchestrationService {
             SpreadCalculationService calculationService,
             FeeService feeService,
             ExchangeAvailabilityStore availabilityStore,
+            ExchangeBackoffStore backoffStore,
             MarketSnapshotStore snapshotStore,
             SpreadPublisher spreadPublisher,
             TrackedPairRepository trackedPairRepository,
@@ -60,6 +62,7 @@ public class PollOrchestrationService {
         this.calculationService = calculationService;
         this.feeService = feeService;
         this.availabilityStore = availabilityStore;
+        this.backoffStore = backoffStore;
         this.snapshotStore = snapshotStore;
         this.spreadPublisher = spreadPublisher;
         this.trackedPairRepository = trackedPairRepository;
@@ -156,18 +159,26 @@ public class PollOrchestrationService {
 
         List<Mono<List<PriceTicker>>> adapterRequests = new ArrayList<>();
         for (ExchangeAdapter adapter : adapters) {
+            Exchange exchange = adapter.getExchange();
+            if (backoffStore.isBackingOff(exchange)) {
+                log.debug("Skipping {} — backing off until {}", exchange, backoffStore.getBackoffUntil(exchange));
+                continue;
+            }
             List<String> supported = resolveSymbolsForAdapter(adapter, symbols);
             if (supported.isEmpty()) {
                 continue;
             }
             adapterRequests.add(
                     adapter.getTickers(supported)
-                            .doOnNext(ticker -> availabilityStore.recordSuccess(ticker.exchange(), ticker.symbol()))
+                            .doOnNext(ticker -> {
+                                availabilityStore.recordSuccess(ticker.exchange(), ticker.symbol());
+                                backoffStore.recordSuccess(ticker.exchange());
+                            })
                             .onErrorContinue((e, obj) -> log.warn("Adapter {} ticker error: {}",
-                                    adapter.getExchange(), e.getMessage()))
+                                    exchange, e.getMessage()))
                             .collectList()
                             .onErrorResume(e -> {
-                                log.warn("Adapter {} batch failed: {}", adapter.getExchange(), e.getMessage());
+                                log.warn("Adapter {} batch failed: {}", exchange, e.getMessage());
                                 return Mono.just(List.of());
                             })
             );

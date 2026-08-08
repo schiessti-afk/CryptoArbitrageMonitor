@@ -185,6 +185,14 @@ Hidden venues render as muted “hidden” chips.
 - Magnitude-aware price decimals (`priceDecimals`)
 - Signed/coloured percentages; quote-aware profit labels (USD vs USDT, not hardcoded `$`)
 
+### 3.3b Flash-on-change
+
+**Files:** `directives/flash-on-change.directive.ts`, `styles.css` (`.flash-change`)
+
+- `appFlashOnChange` directive restarts a brief background pulse when the bound value changes
+- Wired on matrix buy/sell/raw/net cells, accordion best %, and Top Opportunities net/profit/prices
+- Animation suppressed when `prefers-reduced-motion: reduce`
+
 ### 3.4 Theme and density
 
 **File:** `styles.css` — semantic CSS variables + component classes (`panel`, `bg-page`, `chip-*`, dark via `data-theme` and `prefers-color-scheme`).
@@ -254,10 +262,11 @@ Open `http://localhost:4200` — KPI row, ranked opportunities, settings gear, f
 
 ## Known limitations (unchanged)
 
-- No 429 backoff (Sprint 4)
 - No Docker full-stack / Nginx (Sprint 4)
 - Settings are client-side only (`localStorage`)
 - Coinbase remains the per-product bottleneck at 5 req/cycle for USD symbols
+
+**Done later (documented in [ARCHITECTURE.md](./ARCHITECTURE.md#error-handling)):** HTTP 429/418 and timeout backoff via `ExchangeBackoffFilter` + `ExchangeBackoffStore`; poll cycle skips venues still in the backoff window.
 
 ---
 

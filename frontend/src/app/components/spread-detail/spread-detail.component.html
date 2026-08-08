@@ -33,14 +33,18 @@
               <span class="font-medium">{{ opp.buyExchange }}</span>
               <span class="text-muted mx-1">→</span>
               <span class="font-medium">{{ opp.sellExchange }}</span>
-              <div class="text-xs text-muted tabular-nums">
+              <div class="text-xs text-muted tabular-nums"
+                   [appFlashOnChange]="opp.buyPrice + ':' + opp.sellPrice">
                 {{ opp.buyPrice | number:priceFormat(opp.buyPrice) }} → {{ opp.sellPrice | number:priceFormat(opp.sellPrice) }}
               </div>
             </td>
-            <td class="text-right font-bold tabular-nums" [ngClass]="[rowPadding(), getTextClass(opp.netSpreadPercent)]">
+            <td class="text-right font-bold tabular-nums"
+                [ngClass]="[rowPadding(), getTextClass(opp.netSpreadPercent)]"
+                [appFlashOnChange]="opp.netSpreadPercent">
               {{ formatPercent(opp.netSpreadPercent) }}
             </td>
             <td class="text-right tabular-nums" [ngClass]="rowPadding()"
+                [appFlashOnChange]="profit(opp)"
                 [title]="'notional × net% ÷ 100 at top-of-book; excludes transfer/network fees and fill depth.'">
               {{ formatProfitValue(opp) }}
             </td>

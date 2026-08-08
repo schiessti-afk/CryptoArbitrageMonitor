@@ -1,5 +1,7 @@
 package com.cryptoarbitrage.monitor.config;
 
+import com.cryptoarbitrage.monitor.exchange.Exchange;
+import com.cryptoarbitrage.monitor.service.ExchangeBackoffStore;
 import io.netty.channel.ChannelOption;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,31 +25,35 @@ public class WebClientConfig {
     private static final int MAX_IN_MEMORY_SIZE = 16 * 1024 * 1024;
 
     @Bean
-    public WebClient binanceWebClient(ExchangeProperties props) {
-        return createWebClient(props.getAdapters().get("binance"));
+    public WebClient binanceWebClient(ExchangeProperties props, ExchangeBackoffStore backoffStore) {
+        return createWebClient(props.getAdapters().get("binance"), Exchange.BINANCE, backoffStore);
     }
 
     @Bean
-    public WebClient krakenWebClient(ExchangeProperties props) {
-        return createWebClient(props.getAdapters().get("kraken"));
+    public WebClient krakenWebClient(ExchangeProperties props, ExchangeBackoffStore backoffStore) {
+        return createWebClient(props.getAdapters().get("kraken"), Exchange.KRAKEN, backoffStore);
     }
 
     @Bean
-    public WebClient coinbaseWebClient(ExchangeProperties props) {
-        return createWebClient(props.getAdapters().get("coinbase"));
+    public WebClient coinbaseWebClient(ExchangeProperties props, ExchangeBackoffStore backoffStore) {
+        return createWebClient(props.getAdapters().get("coinbase"), Exchange.COINBASE, backoffStore);
     }
 
     @Bean
-    public WebClient bitgetWebClient(ExchangeProperties props) {
-        return createWebClient(props.getAdapters().get("bitget"));
+    public WebClient bitgetWebClient(ExchangeProperties props, ExchangeBackoffStore backoffStore) {
+        return createWebClient(props.getAdapters().get("bitget"), Exchange.BITGET, backoffStore);
     }
 
     @Bean
-    public WebClient kucoinWebClient(ExchangeProperties props) {
-        return createWebClient(props.getAdapters().get("kucoin"));
+    public WebClient kucoinWebClient(ExchangeProperties props, ExchangeBackoffStore backoffStore) {
+        return createWebClient(props.getAdapters().get("kucoin"), Exchange.KUCOIN, backoffStore);
     }
 
-    private WebClient createWebClient(ExchangeProperties.ExchangeConfig config) {
+    private WebClient createWebClient(
+            ExchangeProperties.ExchangeConfig config,
+            Exchange exchange,
+            ExchangeBackoffStore backoffStore
+    ) {
         if (config == null || config.getBaseUrl() == null) {
             throw new IllegalArgumentException("Exchange config or base-url is missing");
         }
@@ -59,6 +65,7 @@ public class WebClientConfig {
         return WebClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .filter(ExchangeBackoffFilter.create(exchange, backoffStore))
                 .codecs(c -> c.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_SIZE))
                 .build();
     }

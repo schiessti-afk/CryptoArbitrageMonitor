@@ -181,6 +181,8 @@ frontend/src/app/
 │   ├── spread-table/          # full matrix
 │   ├── spread-detail/         # best opportunity focus
 │   └── connection-status/     # LIVE when ≥2 fresh exchanges / 10s
+├── directives/
+│   └── flash-on-change.directive.ts   # pulse cells when values change
 ├── services/
 │   ├── spread.service.ts
 │   ├── websocket.service.ts
@@ -189,6 +191,8 @@ frontend/src/app/
 ```
 
 UI copy uses **indicative cross-venue arbitrage opportunity**. Investment notional is selectable; default `$1,000`.
+
+**Flash-on-change:** the standalone `appFlashOnChange` directive watches a bound value and briefly applies the global `.flash-change` CSS class (accent-muted pulse, ~0.6s) when it changes. Used on matrix buy/sell/raw/net cells, accordion “best” %, and Top Opportunities net/profit/prices. The animation is gated by `prefers-reduced-motion: no-preference` in `styles.css`.
 
 Production image: `ng build` artifacts served by **Nginx** (not the Angular dev server).
 
@@ -200,7 +204,26 @@ Production image: `ng build` artifacts served by **Nginx** (not the Angular dev 
 | Fewer than 2 fresh exchanges | Status not green; still show last known data where useful |
 | Invalid / missing bid-ask | Exclude that ticker from the cycle matrix |
 | DB write failure | Log error; prefer not to block publishing live updates if possible |
-| Rate limit / HTTP 429 | Back off that adapter; degrade gracefully |
+| Rate limit / HTTP 429 or 418 | Back off that venue; skip it on later poll cycles until the window ends |
+| Request / response timeout | Same backoff path as rate limits |
+
+### Exchange backoff (429 / timeout)
+
+Implemented ahead of the rest of Sprint 4 shipping work.
+
+| Piece | Role |
+|---|---|
+| `ExchangeBackoffFilter` | Attached to every exchange `WebClient`; records backoff on HTTP **429** / **418** and on timeout-like failures |
+| `ExchangeBackoffStore` | Per-venue exponential skip window; thread-safe |
+| `PollOrchestrationService` | Skips adapters still in backoff; other venues continue as usual |
+
+**Policy:**
+
+- Initial window: `app.polling.backoff-initial-ms` (default **15s**)
+- On repeated failures while still hot: doubles up to `app.polling.backoff-max-ms` (default **120s**)
+- After the window expires, a clean success resets the multiplier
+- An active window is **not** cancelled by a parallel success in the same cycle (important for Coinbase’s per-product fan-out: one product’s 429 must not be undone by another product’s 200)
+- Adapters still degrade to empty tickers for the failing call; the matrix continues on remaining venues
 
 ## Exchange API limits
 
@@ -222,6 +245,7 @@ Always verify current vendor docs when changing poll interval or symbol count. D
 
 - Datasource via env: `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - Exchange base URLs, timeouts, default fees, poll interval, freshness window (10s), and investment default via Spring configuration
+- Backoff: `app.polling.backoff-initial-ms`, `app.polling.backoff-max-ms`
 - No private API keys required for V1
 
 ## Testing focus
@@ -230,6 +254,7 @@ Always verify current vendor docs when changing poll interval or symbol count. D
 |---|---|
 | `SpreadCalculationService` | Raw/net math, fees, equal prices, negatives, invalid inputs |
 | Adapters | Fixture JSON → `PriceTicker` + symbol mapping |
+| `ExchangeBackoffStore` / `ExchangeBackoffFilter` | Exponential windows, 429/418/timeout recording, parallel-success race |
 | Persistence | Spring Boot + PostgreSQL repository/Flyway path |
 
 ## Non-goals (architecture)

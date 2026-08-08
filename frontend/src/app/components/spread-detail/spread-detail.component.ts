@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity, SymbolCoverage } from '../../models/spread.model';
+import { FlashOnChangeDirective } from '../../directives/flash-on-change.directive';
 import {
   getSpreadState,
   getStateClasses,
@@ -23,7 +24,7 @@ import {
 @Component({
   selector: 'app-spread-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FlashOnChangeDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './spread-detail.component.html',
 })

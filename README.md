@@ -21,8 +21,10 @@ This application does **not** execute trades. Displayed values are **indicative 
 - **Full Matrix** — accordion per market (collapsed by default); expand/collapse individual symbols or use Expand all / Collapse all
 - User-selectable hypothetical investment size (default **$1,000**)
 - Live updates over **WebSocket + STOMP + SockJS** (frontend does not poll)
+- **Flash-on-change** — matrix and opportunity cells briefly pulse when prices or spreads update
 - Historical spread log with bounded REST queries
 - Graceful degradation when an exchange fails
+- **429 / timeout backoff** — rate-limited or timed-out venues are skipped for an exponential window (15s–120s) while others keep polling
 - Dark mode (system / light / dark) and comfortable/compact density
 
 ## Stack
@@ -158,8 +160,8 @@ The frontend syncs enabled markets whenever you toggle chips in the USDT bar or 
 |---|---|
 | Header | USDT/USD toggle (USDT default), notional input, settings |
 | USDT bar | Major-five chips always visible; tap **+ N more** to add extended markets |
-| Top Opportunities | Ranked cards with All / Positive / Above threshold filters |
-| Full Matrix | One collapsed row per market; tap to expand routes; Expand all / Collapse all |
+| Top Opportunities | Ranked cards with All / Positive / Above threshold filters; cells flash on value change |
+| Full Matrix | One collapsed row per market; tap to expand routes; Expand all / Collapse all; price/spread cells flash on change |
 | Settings | Venues, USD checkboxes, USDT chip picker with Major 5 only / All USDT presets |
 
 ## API (overview)
@@ -200,6 +202,8 @@ The dashboard footer states this explicitly. Use the language **indicative cross
 ## Exchange API usage
 
 Polling is **best effort** with graceful degradation. Batch venues (Binance, Kraken, Bitget, KuCoin) issue **one request per cycle** regardless of how many symbols you select; adapters filter to your enabled markets. Coinbase issues **one request per selected product** it lists.
+
+If a venue returns **HTTP 429/418** or a request times out, the backend **backs off that venue** (default 15s, doubling to 120s on repeats) and skips it on subsequent poll cycles until the window ends. Other exchanges continue. Details: [Architecture — exchange backoff](docs/ARCHITECTURE.md#error-handling).
 
 With the default five USDT markets plus five USD pairs, load stays well within public rate limits. See [Architecture](docs/ARCHITECTURE.md#exchange-api-limits) for vendor guidance.
 

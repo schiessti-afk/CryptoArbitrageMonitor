@@ -35,6 +35,7 @@
           </span>
           @if (bestNetPercent(group.rows); as best) {
             <span class="text-sm font-bold tabular-nums shrink-0"
+                  [appFlashOnChange]="best"
                   [class.text-positive]="best > 0.001"
                   [class.text-negative]="best < -0.001"
                   [class.text-muted]="best >= -0.001 && best <= 0.001">
@@ -66,12 +67,16 @@
                   <tr [class]="getRowClass(row.netSpreadPercent) + ' border-b border-theme'">
                     <td class="sticky left-0 bg-inherit z-10" [ngClass]="cellPadding()">{{ row.buyExchange }}</td>
                     <td [ngClass]="cellPadding()">{{ row.sellExchange }}</td>
-                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
-                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
-                    <td class="text-right tabular-nums" [ngClass]="cellPadding()">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
+                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()"
+                        [appFlashOnChange]="row.buyPrice">{{ row.buyPrice | number:priceFormat(row.buyPrice) }}</td>
+                    <td class="text-right font-mono tabular-nums" [ngClass]="cellPadding()"
+                        [appFlashOnChange]="row.sellPrice">{{ row.sellPrice | number:priceFormat(row.sellPrice) }}</td>
+                    <td class="text-right tabular-nums" [ngClass]="cellPadding()"
+                        [appFlashOnChange]="row.rawSpreadPercent">{{ row.rawSpreadPercent | number:'1.2-4' }}%</td>
                     <td class="text-right text-muted tabular-nums" [ngClass]="cellPadding()">{{ calculateFeeImpact(row) | number:'1.2-2' }}%</td>
                     <td class="text-right font-bold tabular-nums"
                         [ngClass]="cellPadding()"
+                        [appFlashOnChange]="row.netSpreadPercent"
                         [class.text-positive]="row.netSpreadPercent > 0.001"
                         [class.text-negative]="row.netSpreadPercent < -0.001">
                       {{ formatNet(row.netSpreadPercent) }}

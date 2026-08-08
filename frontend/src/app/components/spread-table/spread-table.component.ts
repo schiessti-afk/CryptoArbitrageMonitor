@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, signal } from '@an
 import { CommonModule } from '@angular/common';
 import { SpreadOpportunity, SymbolCoverage } from '../../models/spread.model';
 import { DashboardSettings } from '../../services/settings.service';
+import { FlashOnChangeDirective } from '../../directives/flash-on-change.directive';
 import { getSpreadState, getStateBackgroundClass } from '../../utils/spread-state';
 import { isBelowThreshold } from '../../utils/dashboard-filter';
 import { formatSignedPercent, priceDecimals } from '../../utils/format-numbers';
@@ -9,7 +10,7 @@ import { formatSignedPercent, priceDecimals } from '../../utils/format-numbers';
 @Component({
   selector: 'app-spread-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FlashOnChangeDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './spread-table.component.html',
 })
