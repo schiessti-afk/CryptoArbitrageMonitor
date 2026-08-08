@@ -143,7 +143,11 @@ public class BitgetAdapter implements ExchangeAdapter {
             String internal = nativeToInternal.get(nativeSymbol);
             if (internal != null) {
                 found.add(internal);
-                tickers.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+                try {
+                    tickers.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+                } catch (RuntimeException e) {
+                    log.warn("Bitget: skipping {}: {}", internal, e.getMessage());
+                }
             }
         }
 

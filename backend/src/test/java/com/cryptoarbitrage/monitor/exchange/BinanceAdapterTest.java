@@ -104,4 +104,35 @@ class BinanceAdapterTest {
         assertNotNull(tickers);
         assertTrue(tickers.isEmpty());
     }
+
+    @Test
+    void getTickers_zeroBidAskSkipsSymbolWithoutKillingBatch() {
+        exchangeProperties = TestExchangeProperties.singleAdapter(
+                "binance",
+                "https://api.binance.com",
+                Map.of(
+                        "BTC_USDT", new String[]{"BTCUSDT", "USDT"},
+                        "TON_USDT", new String[]{"TONUSDT", "USDT"},
+                        "SOL_USDT", new String[]{"SOLUSDT", "USDT"}
+                )
+        );
+        String body = """
+                [
+                  {"symbol":"BTCUSDT","bidPrice":"65015.27000000","bidQty":"5.66862000","askPrice":"65015.28000000","askQty":"3.84780000"},
+                  {"symbol":"TONUSDT","bidPrice":"0.00000000","bidQty":"0.00000000","askPrice":"0.00000000","askQty":"0.00000000"},
+                  {"symbol":"SOLUSDT","bidPrice":"75.56000000","bidQty":"504.46800000","askPrice":"75.57000000","askQty":"291.33400000"}
+                ]
+                """;
+        BinanceAdapter adapter = adapterReturning(body, HttpStatus.OK);
+
+        List<PriceTicker> tickers = adapter.getTickers(List.of("BTC/USDT", "TON/USDT", "SOL/USDT"))
+                .collectList()
+                .block();
+
+        assertNotNull(tickers);
+        assertEquals(2, tickers.size());
+        assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("BTC/USDT")));
+        assertTrue(tickers.stream().anyMatch(t -> t.symbol().equals("SOL/USDT")));
+        assertTrue(tickers.stream().noneMatch(t -> t.symbol().equals("TON/USDT")));
+    }
 }

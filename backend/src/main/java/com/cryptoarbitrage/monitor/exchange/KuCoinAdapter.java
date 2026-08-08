@@ -144,7 +144,11 @@ public class KuCoinAdapter implements ExchangeAdapter {
             String internal = nativeToInternal.get(nativeSymbol);
             if (internal != null) {
                 found.add(internal);
-                results.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+                try {
+                    results.add(parseTickerNode(node, internal, marketByInternal.get(internal)));
+                } catch (RuntimeException e) {
+                    log.warn("KuCoin: skipping {}: {}", internal, e.getMessage());
+                }
             }
         }
 

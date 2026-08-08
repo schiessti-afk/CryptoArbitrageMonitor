@@ -110,7 +110,12 @@ public class BinanceAdapter implements ExchangeAdapter {
                         String internal = nativeToInternal.get(nativeSymbol);
                         if (internal != null) {
                             found.add(internal);
-                            tickers.add(parseTicker(node, internal, marketByInternal.get(internal)));
+                            try {
+                                tickers.add(parseTicker(node, internal, marketByInternal.get(internal)));
+                            } catch (RuntimeException e) {
+                                // One halted/illiquid market (e.g. zero bid/ask) must not discard the batch.
+                                log.warn("Binance: skipping {}: {}", internal, e.getMessage());
+                            }
                         }
                     }
                     for (String symbol : supported) {
@@ -151,7 +156,8 @@ public class BinanceAdapter implements ExchangeAdapter {
         BigDecimal ask = new BigDecimal(json.get("askPrice").asText());
 
         if (bid.signum() <= 0 || ask.signum() <= 0) {
-            throw new IllegalArgumentException("Binance: invalid bid/ask prices");
+            throw new IllegalArgumentException(
+                    "Binance: invalid bid/ask prices for " + internalSymbol + " (bid=" + bid + ", ask=" + ask + ")");
         }
 
         BigDecimal bidSize = AdapterJsonUtils.optionalDecimal(json, "bidQty");

@@ -127,7 +127,11 @@ public class KrakenAdapter implements ExchangeAdapter {
             String internal = nativeToInternal.get(responseKey);
             if (internal != null) {
                 found.add(internal);
-                tickers.add(parseTickerFromNode(result.get(responseKey), internal, marketByInternal.get(internal)));
+                try {
+                    tickers.add(parseTickerFromNode(result.get(responseKey), internal, marketByInternal.get(internal)));
+                } catch (RuntimeException e) {
+                    log.warn("Kraken: skipping {}: {}", internal, e.getMessage());
+                }
             }
         }
 
