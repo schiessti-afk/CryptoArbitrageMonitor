@@ -7,7 +7,7 @@ This application does **not** execute trades. Displayed values are **indicative 
 ## Features
 
 - Public market data from **five exchanges** (no private API keys)
-- **31 tracked symbols** in the database — **5 USD** and **26 USDT** markets (BNB is USDT-only on three venues)
+- **50 tracked symbols** in the database — **5 USD** and **45 USDT** markets (BNB is USDT-only on three venues)
 - **Selective polling** — the backend fetches only markets you enable in the dashboard; adding or removing a coin updates the next poll cycle via `PUT /api/preferences/poll`
 - Batched ticker fetches for Binance, Kraken, Bitget, and KuCoin (one HTTP call per venue per cycle); Coinbase uses per-product calls for selected markets only
 - Normalized bid/ask tickers via exchange adapters with live-probed native symbol mapping
@@ -84,11 +84,11 @@ npm start                      # http://localhost:4200
 
 Default DB credentials match Compose / `.env.example`: database `arbitrage`, user/password `arbitrage`, host port `5437` (mapped to container `5432`).
 
-Flyway applies migrations through **V5** on startup (adds 20 USDT expansion assets).
+Flyway applies migrations through **V6** on startup (V5 + V6 USDT expansion batches).
 
 ## Monitored markets
 
-The database tracks **31 pairs** across two **quote universes** — never mixed in a single comparison. The dashboard **polls only the markets you select**; the tables below describe what is configured, not what is fetched every cycle.
+The database tracks **50 pairs** across two **quote universes** — never mixed in a single comparison. The dashboard **polls only the markets you select**; the tables below describe what is configured, not what is fetched every cycle.
 
 ### USD (5 symbols — all shown by default)
 
@@ -99,21 +99,22 @@ The database tracks **31 pairs** across two **quote universes** — never mixed 
 
 Binance global spot lists SOL/USD but not XRP/USD or DOGE/USD (verified live).
 
-### USDT (26 symbols — major five shown by default)
+### USDT (45 symbols — major five shown by default)
 
 **Default enabled:** `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `DOGE/USDT`
 
-**Extended (add via chip picker):** BNB, ADA, AVAX, LINK, SUI, DOT, TON, LTC, BCH, SHIB, PEPE, UNI, NEAR, APT, ATOM, FIL, ARB, OP, INJ, AAVE, WIF
+**Extended (add via chip picker):** BNB, ADA, AVAX, LINK, SUI, DOT, TON, LTC, BCH, SHIB, PEPE, UNI, NEAR, APT, ATOM, FIL, ARB, OP, INJ, AAVE, WIF, TRX, POL, ETC, ALGO, VET, ICP, HBAR, SEI, TIA, STX, RUNE, JUP, WLD, FET, RENDER, TAO, ENA, ONDO, PENDLE
 
 | Symbol group | Venues |
 |---|---|
 | `BTC/USDT` … `DOGE/USDT` | Binance, Kraken, Coinbase, Bitget, KuCoin |
 | `BNB/USDT` | Binance, Bitget, KuCoin |
 | `ADA/USDT`, `AVAX/USDT`, `LINK/USDT`, `DOT/USDT`, `SHIB/USDT`, `ATOM/USDT` | Binance, Kraken, Bitget, KuCoin; Coinbase when selected |
-| `NEAR/USDT`, `OP/USDT` | Binance, Bitget, KuCoin; Coinbase when selected |
-| `SUI/USDT`, `PEPE/USDT`, `UNI/USDT`, `APT/USDT`, `FIL/USDT`, `ARB/USDT`, `INJ/USDT`, `AAVE/USDT`, `WIF/USDT` | Binance, Bitget, KuCoin |
-| `TON/USDT` | Binance, Kraken, KuCoin |
+| `NEAR/USDT`, `OP/USDT`, `HBAR/USDT`, `STX/USDT`, `FET/USDT` | Binance, Bitget, KuCoin; Coinbase when selected |
+| `ALGO/USDT`, `VET/USDT` | Binance, Kraken, Bitget, KuCoin |
 | `LTC/USDT`, `BCH/USDT` | Binance, Kraken, Bitget, KuCoin |
+| `TON/USDT` | Binance, Kraken, KuCoin |
+| `SUI/USDT`, `PEPE/USDT`, `UNI/USDT`, `APT/USDT`, `FIL/USDT`, `ARB/USDT`, `INJ/USDT`, `AAVE/USDT`, `WIF/USDT`, `TRX/USDT`, `POL/USDT`, `ETC/USDT`, `ICP/USDT`, `SEI/USDT`, `TIA/USDT`, `RUNE/USDT`, `JUP/USDT`, `WLD/USDT`, `RENDER/USDT`, `TAO/USDT`, `ENA/USDT`, `ONDO/USDT`, `PENDLE/USDT` | Binance, Bitget, KuCoin |
 
 Each adapter maps exchange-native product ids (e.g. Kraken `XDGUSD` for DOGE/USD, KuCoin `BTC-USDT`) into internal symbols. Venue coverage details and probe notes: [docs/SPRINT-USDT-EXPANSION.md](docs/SPRINT-USDT-EXPANSION.md).
 

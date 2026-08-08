@@ -157,13 +157,14 @@ Full breakdown in [SPRINT-USDT-EXPANSION.md](./SPRINT-USDT-EXPANSION.md).
 
 - [x] Live-probe native symbols (Bitget, KuCoin, Kraken, Coinbase; Binance geo-blocked — symbols aligned to Bitget)
 - [x] Migration `V5`: 20 new `*/USDT` tracked pairs (31 symbols total)
+- [x] Migration `V6`: 19 additional `*/USDT` pairs (50 symbols total; POL for MATIC; MKR skipped)
 - [x] `application.properties` venue maps for Binance, Kraken, Bitget, KuCoin; Coinbase core + optional USDT
 - [x] `CoinbasePollSymbolResolver` + `PUT /api/preferences/poll` + frontend `PollPreferenceService`
 - [x] Tests and documentation updates
 
 ### Exit criteria
 
-- [x] All 20 USDT pairs stream on ≥2 batched venues (Binance/Kraken/Bitget/KuCoin)
+- [x] All V5/V6 USDT pairs stream on ≥2 batched venues (Binance/Kraken/Bitget/KuCoin)
 - [x] Coinbase stays on core set when >8 markets enabled; expands optional USDT when ≤8 enabled
 - [x] Dashboard settings sync enabled symbols to backend without raising batch-venue request count
 
@@ -208,7 +209,7 @@ A new developer can clone, run `docker compose up --build`, and see live indicat
 - [x] Responses normalized through `ExchangeAdapter`
 - [x] `BTC/USD` and `ETH/USD` monitored as USD markets
 - [x] Sprint 3: SOL, XRP, DOGE (USD + USDT) and BNB/USDT added — 11 symbols total
-- [x] USDT expansion: 20 additional USDT markets (31 symbols total)
+- [x] USDT expansion: V5 + V6 batches (45 USDT / 50 symbols total)
 - [x] Five venues: Binance, Kraken, Coinbase, Bitget, KuCoin
 - [x] Batched ticker fetches; request rate documented in Architecture
 - [x] Dashboard settings (client-side) and ranked opportunity UI

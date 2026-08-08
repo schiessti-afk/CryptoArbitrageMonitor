@@ -56,8 +56,40 @@ All 20 rows meet the ≥2 venue rule among Binance/Kraken/Bitget/KuCoin.
 ```bash
 cd backend && ./gradlew test
 cd frontend && npm test -- --watch=false
-curl -s localhost:8081/api/pairs | jq 'length'          # expect 31
+curl -s localhost:8081/api/pairs | jq 'length'          # expect 50 after V6
 curl -X PUT localhost:8081/api/preferences/poll \
   -H 'Content-Type: application/json' \
   -d '{"enabledSymbols":["ADA/USDT","LINK/USDT"]}'
 ```
+
+---
+
+## Batch 2 (V6) — 2026-08-08
+
+**Migration:** `V6__add_usdt_assets_batch2.sql` — 19 additional `*/USDT` rows (45 USDT / 50 total with USD).
+
+| Asset | Binance | Kraken | Coinbase | Bitget | KuCoin |
+|---|---|---|---|---|---|
+| TRX | TRXUSDT | — | — | TRXUSDT | TRX-USDT |
+| POL | POLUSDT | — | — | POLUSDT | POL-USDT |
+| ETC | ETCUSDT | — | — | ETCUSDT | ETC-USDT |
+| ALGO | ALGOUSDT | ALGOUSDT | — | ALGOUSDT | ALGO-USDT |
+| VET | VETUSDT | VETUSDT | — | VETUSDT | VET-USDT |
+| ICP | ICPUSDT | — | — | ICPUSDT | ICP-USDT |
+| HBAR | HBARUSDT | — | HBAR-USDT | HBARUSDT | HBAR-USDT |
+| SEI | SEIUSDT | — | — | SEIUSDT | SEI-USDT |
+| TIA | TIAUSDT | — | — | TIAUSDT | TIA-USDT |
+| STX | STXUSDT | — | STX-USDT | STXUSDT | STX-USDT |
+| RUNE | RUNEUSDT | — | — | RUNEUSDT | RUNE-USDT |
+| JUP | JUPUSDT | — | — | JUPUSDT | JUP-USDT |
+| WLD | WLDUSDT | — | — | WLDUSDT | WLD-USDT |
+| FET | FETUSDT | — | FET-USDT | FETUSDT | FET-USDT |
+| RENDER | RENDERUSDT | — | — | RENDERUSDT | RENDER-USDT |
+| TAO | TAOUSDT | — | — | TAOUSDT | TAO-USDT |
+| ENA | ENAUSDT | — | — | ENAUSDT | ENA-USDT |
+| ONDO | ONDOUSDT | — | — | ONDOUSDT | ONDO-USDT |
+| PENDLE | PENDLEUSDT | — | — | PENDLEUSDT | PENDLE-USDT |
+
+**Notes:**
+- **POL** replaces requested `MATIC/USDT` — Bitget/KuCoin list POL only; Binance still has legacy `MATICUSDT` but cross-venue arb needs POL.
+- **MKR/USDT** not added — Binance-only among configured venues (no ≥2-venue spread).
