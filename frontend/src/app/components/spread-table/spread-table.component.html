@@ -1,0 +1,30 @@
+<div class="overflow-x-auto">
+  <h2 class="text-lg font-bold mb-4">Full Matrix</h2>
+  @if (matrix.length === 0) {
+    <p class="text-gray-500 text-sm">No data yet</p>
+  }
+  <table class="w-full text-xs border-collapse">
+    <thead>
+      <tr class="bg-gray-200">
+        <th class="border p-2 text-left">Buy</th>
+        <th class="border p-2 text-left">Sell</th>
+        <th class="border p-2 text-right">Buy $</th>
+        <th class="border p-2 text-right">Sell $</th>
+        <th class="border p-2 text-right">Raw %</th>
+        <th class="border p-2 text-right">Net %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of matrix; track row.symbol + row.buyExchange + row.sellExchange) {
+        <tr [ngClass]="row.netSpreadPercent > 0 ? 'bg-green-50' : (row.netSpreadPercent < 0 ? 'bg-red-50' : '')">
+          <td class="border p-2">{{ row.buyExchange }}</td>
+          <td class="border p-2">{{ row.sellExchange }}</td>
+          <td class="border p-2 text-right font-mono">{{ row.buyPrice | number:'1.2-4' }}</td>
+          <td class="border p-2 text-right font-mono">{{ row.sellPrice | number:'1.2-4' }}</td>
+          <td class="border p-2 text-right">{{ row.rawSpreadPercent | number:'1.2-2' }}%</td>
+          <td class="border p-2 text-right font-bold">{{ row.netSpreadPercent | number:'1.2-2' }}%</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

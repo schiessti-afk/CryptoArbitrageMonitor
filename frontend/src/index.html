@@ -6,6 +6,12 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Polyfill for sockjs-client - MUST run before any modules load
+    window.global = window;
+    window.globalThis = window;
+    window.process = { env: { NODE_ENV: 'development' } };
+  </script>
 </head>
 <body>
   <app-root></app-root>

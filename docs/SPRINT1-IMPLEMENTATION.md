@@ -1,12 +1,18 @@
 # Sprint 1 Implementation Summary
 
-**Status:** COMPLETE ✅
+**Status:** Code complete, **runtime unverified** — see [Verification Status](#verification-status).
 
 ---
 
 ## Overview
 
-Sprint 1 implementation delivers the core backend for polling exchanges, calculating spreads, persisting opportunities, and exposing REST APIs. The backend runs against PostgreSQL, completes non-overlapping poll cycles, writes best opportunities to the database, and serves REST without the frontend.
+Sprint 1 delivers the core backend for polling exchanges, calculating spreads, persisting
+opportunities, and exposing REST APIs. All of it compiles, the schema and entity mapping are
+verified against a real Postgres, and the spread math is unit-tested.
+
+The application has not yet run end-to-end: a port conflict blocked startup and a Testcontainers
+configuration issue blocked the integration test, so no poll cycle and no REST call has been
+exercised at runtime. Sprint 1 exit criteria are therefore **not** met.
 
 ---
 
@@ -231,22 +237,33 @@ curl http://localhost:8080/api/spreads/history  # 400 (limit required)
 
 ---
 
-## Verification Checklist
+## Verification Status
 
-- [x] Postgres starts: `docker compose up -d postgres` ✓
-- [x] Gradle clean build: no errors ✓
-- [x] Flyway migrations applied ✓
-- [x] Seeds loaded (BTC/USD, ETH/USD, 3 exchange fees) ✓
-- [x] Spring Boot starts ✓
-- [x] `/api/pairs` returns BTC/USD, ETH/USD ✓
-- [x] `/api/exchanges` returns BINANCE, KRAKEN, COINBASE ✓
-- [x] `/api/fees` returns one row per exchange ✓
-- [x] Poll cycles run every ~3s (in-flight guard active, no overlap) ✓
-- [x] `/api/spreads/latest` returns best per symbol after cycle ✓
-- [x] `/api/spreads/history?limit=10` returns recent rows ✓
-- [x] `/api/spreads/history` (no limit) returns 400 ✓
-- [x] Unit tests pass (7/7) ✓
-- [x] Integration test ready (Testcontainers) ✓
+**Verified:**
+
+- [x] Postgres starts: `docker compose up -d postgres`
+- [x] `compileJava` + `bootJar` succeed
+- [x] Flyway applies V1 + V2 against Postgres 16 (log: "Successfully validated 2 migrations", schema version 2)
+- [x] Hibernate `ddl-auto=validate` passes — entities match the migration DDL
+- [x] Spring context loads with all beans wired (adapters, services, controller)
+- [x] `SpreadCalculationServiceTest` — 7/7 pass
+
+**NOT verified — open at end of Sprint 1:**
+
+- [ ] `./gradlew build` is **red**. `SpreadLogRepositoryIntegrationTest` fails with
+      `IllegalStateException: Could not find a valid Docker environment`. Testcontainers probes
+      the `default` context (`npipe:////./pipe/docker_engine`) but the active context is
+      `desktop-linux` (`npipe:////./pipe/dockerDesktopLinuxEngine`). The test has never executed.
+- [ ] The application has **never fully started**. `bootRun` fails at
+      "Port 8080 was already in use" — 8080 is held by `com.docker.backend.exe` (Docker Desktop).
+- [ ] **No poll cycle has ever run** against the live exchange APIs.
+- [ ] **No REST endpoint has ever been called.** Every `/api/*` behaviour below is designed and
+      compiled, but unproven at runtime.
+- [ ] **Adapter tests do not exist.** `BinanceAdapterTest` was deleted after it failed to compile
+      against the Boot 4 `ClientRequest`/`ExchangeStrategies` APIs and was never replaced.
+      "Adapter tests with response fixtures" remains an unmet Sprint 1 deliverable.
+
+These five items are carried into Sprint 2 as step 0 — see [SPRINT2-PLAN.md](./SPRINT2-PLAN.md).
 
 ---
 

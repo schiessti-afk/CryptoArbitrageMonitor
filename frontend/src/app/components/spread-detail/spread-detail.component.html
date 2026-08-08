@@ -1,0 +1,37 @@
+<div>
+  <h2 class="text-lg font-bold mb-4">Best Opportunities</h2>
+  @if (opportunities.length === 0) {
+    <p class="text-gray-500">Waiting for data...</p>
+  }
+  <div class="space-y-4">
+    @for (opp of opportunities; track opp.symbol) {
+      <div class="p-4 rounded-lg border"
+           [ngClass]="opp.netSpreadPercent < 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'">
+        <div class="flex justify-between items-start mb-2">
+          <h3 class="text-lg font-bold">{{ opp.symbol }}</h3>
+          <span class="text-sm" [ngClass]="opp.netSpreadPercent < 0 ? 'text-red-600' : 'text-green-600'">
+            {{ opp.netSpreadPercent > 0 ? '+' : '' }}{{ opp.netSpreadPercent | number:'1.4-4' }}%
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-sm mb-3">
+          <div>
+            <p class="text-gray-600">Buy: {{ opp.buyExchange }}</p>
+            <p class="font-mono">{{ opp.buyPrice | number:'1.2-8' }}</p>
+          </div>
+          <div>
+            <p class="text-gray-600">Sell: {{ opp.sellExchange }}</p>
+            <p class="font-mono">{{ opp.sellPrice | number:'1.2-8' }}</p>
+          </div>
+        </div>
+
+        <div class="border-t pt-3">
+          <p class="text-sm text-gray-600">Raw Spread: {{ opp.rawSpreadPercent | number:'1.4-4' }}%</p>
+          <p class="text-xl font-bold" [ngClass]="estimatedProfit(opp) < 0 ? 'text-red-600' : 'text-green-600'">
+            Est. Profit: ${{ estimatedProfit(opp) | number:'1.2-2' }}
+          </p>
+        </div>
+      </div>
+    }
+  </div>
+</div>

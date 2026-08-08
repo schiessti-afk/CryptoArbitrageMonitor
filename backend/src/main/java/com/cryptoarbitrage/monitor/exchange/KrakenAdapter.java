@@ -2,6 +2,7 @@ package com.cryptoarbitrage.monitor.exchange;
 
 import com.cryptoarbitrage.monitor.config.ExchangeProperties;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -16,6 +17,7 @@ import java.time.Instant;
 public class KrakenAdapter implements ExchangeAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(KrakenAdapter.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final WebClient webClient;
     private final ExchangeProperties exchangeProperties;
@@ -49,7 +51,8 @@ public class KrakenAdapter implements ExchangeAdapter {
                     log.warn("Kraken: HTTP {} for symbol {}", response.statusCode().value(), internalSymbol);
                     return Mono.error(new RuntimeException("HTTP " + response.statusCode().value()));
                 })
-                .bodyToMono(JsonNode.class)
+                .bodyToMono(String.class)
+                .map(this::parseJson)
                 .map(json -> parseTicker(json, internalSymbol, nativeSymbol))
                 .onErrorResume(e -> {
                     log.warn("Kraken: error fetching {}: {}", internalSymbol, e.getMessage());
@@ -62,7 +65,17 @@ public class KrakenAdapter implements ExchangeAdapter {
         if (config == null) {
             return null;
         }
-        return config.getSymbols().get(internalSymbol);
+        // Convert BTC/USD → BTC_USD for config lookup
+        String configKey = internalSymbol.replace("/", "_");
+        return config.getSymbolMap().get(configKey);
+    }
+
+    private JsonNode parseJson(String body) {
+        try {
+            return MAPPER.readTree(body);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Kraken: failed to parse response JSON", e);
+        }
     }
 
     private PriceTicker parseTicker(JsonNode json, String internalSymbol, String nativeSymbol) {

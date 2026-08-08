@@ -134,6 +134,7 @@ Live matrix updates: STOMP topic `/topic/spreads` (SockJS-enabled endpoint).
 
 ## Documentation
 
+- [Local run](docs/RUN.md) — start Postgres, backend, and frontend
 - [Architecture](docs/ARCHITECTURE.md) — components, data flow, persistence, limits
 - [Sprint plan](docs/SPRINT.md) — three delivery sprints and definition of done
 - [Product idea / notes](docs/IDEA.MD) — original design notes

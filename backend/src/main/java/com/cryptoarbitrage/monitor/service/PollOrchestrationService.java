@@ -37,6 +37,7 @@ public class PollOrchestrationService {
     private final FeeService feeService;
     private final ExchangeAvailabilityStore availabilityStore;
     private final MarketSnapshotStore snapshotStore;
+    private final SpreadPublisher spreadPublisher;
     private final TrackedPairRepository trackedPairRepository;
     private final SpreadLogRepository spreadLogRepository;
     private final AppProperties appProperties;
@@ -48,6 +49,7 @@ public class PollOrchestrationService {
             FeeService feeService,
             ExchangeAvailabilityStore availabilityStore,
             MarketSnapshotStore snapshotStore,
+            SpreadPublisher spreadPublisher,
             TrackedPairRepository trackedPairRepository,
             SpreadLogRepository spreadLogRepository,
             AppProperties appProperties
@@ -57,6 +59,7 @@ public class PollOrchestrationService {
         this.feeService = feeService;
         this.availabilityStore = availabilityStore;
         this.snapshotStore = snapshotStore;
+        this.spreadPublisher = spreadPublisher;
         this.trackedPairRepository = trackedPairRepository;
         this.spreadLogRepository = spreadLogRepository;
         this.appProperties = appProperties;
@@ -81,6 +84,7 @@ public class PollOrchestrationService {
 
     private void executePollCycle() {
         long startTime = System.currentTimeMillis();
+        Instant cycleTimestamp = Instant.now();
         log.debug("Starting poll cycle");
 
         // Step 1: Get active tracked pairs
@@ -110,10 +114,17 @@ public class PollOrchestrationService {
         log.debug("Calculated {} opportunities from {} tickers", result.fullMatrix.size(), tickers.size());
 
         // Step 4: Persist best opportunity per symbol
-        persistBestOpportunities(result.bestPerSymbol);
+        persistBestOpportunities(result.bestPerSymbol, cycleTimestamp);
 
-        // Step 5: Store full matrix for live publishing (Sprint 2)
+        // Step 5: Store full matrix for live publishing
         snapshotStore.update(result.fullMatrix);
+
+        // Step 6: Publish to WebSocket subscribers
+        try {
+            spreadPublisher.publishSnapshot(result, cycleTimestamp);
+        } catch (Exception e) {
+            log.warn("Failed to publish snapshot: {}", e.getMessage());
+        }
 
         long elapsedMs = System.currentTimeMillis() - startTime;
         log.info("Poll cycle completed in {}ms. Best opportunities: {}, Full matrix: {}",
@@ -153,27 +164,25 @@ public class PollOrchestrationService {
                 .block(); // Blocking call acceptable here; it's the poll cycle
     }
 
-    private void persistBestOpportunities(Map<String, SpreadCalculationService.SpreadOpportunity> bestPerSymbol) {
+    private void persistBestOpportunities(Map<String, SpreadCalculationService.SpreadOpportunity> bestPerSymbol, Instant cycleTimestamp) {
         for (SpreadCalculationService.SpreadOpportunity opp : bestPerSymbol.values()) {
             try {
-                SpreadLog log = new SpreadLog();
-                log.setSymbol(opp.symbol);
-                log.setBuyExchange(opp.buyExchange.name());
-                log.setSellExchange(opp.sellExchange.name());
-                log.setBuyPrice(opp.buyPrice);
-                log.setSellPrice(opp.sellPrice);
-                log.setRawSpreadPercent(opp.rawSpreadPercent);
-                log.setNetSpreadPercent(opp.netSpreadPercent);
-                log.setCalculatedAt(Instant.now());
+                SpreadLog spreadLog = new SpreadLog();
+                spreadLog.setSymbol(opp.symbol);
+                spreadLog.setBuyExchange(opp.buyExchange.name());
+                spreadLog.setSellExchange(opp.sellExchange.name());
+                spreadLog.setBuyPrice(opp.buyPrice);
+                spreadLog.setSellPrice(opp.sellPrice);
+                spreadLog.setRawSpreadPercent(opp.rawSpreadPercent);
+                spreadLog.setNetSpreadPercent(opp.netSpreadPercent);
+                spreadLog.setCalculatedAt(cycleTimestamp);
 
-                spreadLogRepository.save(log);
-                logger.debug("Persisted best opportunity for {}: {} via {}->{}",
+                spreadLogRepository.save(spreadLog);
+                log.debug("Persisted best opportunity for {}: {} via {}->{}",
                         opp.symbol, opp.netSpreadPercent, opp.buyExchange, opp.sellExchange);
             } catch (Exception e) {
-                logger.warn("Failed to persist spread log for {}: {}", opp.symbol, e.getMessage());
+                log.warn("Failed to persist spread log for {}: {}", opp.symbol, e.getMessage());
             }
         }
     }
-
-    private static final Logger logger = LoggerFactory.getLogger(PollOrchestrationService.class);
 }

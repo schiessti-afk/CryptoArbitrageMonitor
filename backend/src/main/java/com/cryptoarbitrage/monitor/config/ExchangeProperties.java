@@ -16,7 +16,7 @@ public class ExchangeProperties {
 
     public static class ExchangeConfig {
         private String baseUrl;
-        private Map<String, String> symbols = new HashMap<>();
+        private Map<String, String> symbolMap = new HashMap<>();
         private long connectTimeoutMs = 5000;
         private long responseTimeoutMs = 10000;
 
@@ -29,12 +29,12 @@ public class ExchangeProperties {
             this.baseUrl = baseUrl;
         }
 
-        public Map<String, String> getSymbols() {
-            return symbols;
+        public Map<String, String> getSymbolMap() {
+            return symbolMap;
         }
 
-        public void setSymbols(Map<String, String> symbols) {
-            this.symbols = symbols;
+        public void setSymbolMap(Map<String, String> symbolMap) {
+            this.symbolMap = symbolMap;
         }
 
         public long getConnectTimeoutMs() {

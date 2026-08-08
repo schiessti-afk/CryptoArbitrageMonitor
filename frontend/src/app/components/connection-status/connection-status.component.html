@@ -1,0 +1,28 @@
+<div class="bg-white p-4 rounded-lg shadow">
+  <div class="flex items-center gap-4">
+    <!-- LIVE Badge -->
+    <div class="flex items-center gap-2">
+      <span class="text-2xl" [ngClass]="snapshot()?.live ? 'text-green-500' : 'text-red-500'">
+        ●
+      </span>
+      <span class="text-lg font-bold" [ngClass]="snapshot()?.live ? 'text-green-600' : 'text-red-600'">
+        {{ snapshot()?.live ? 'LIVE' : 'DEGRADED' }}
+      </span>
+    </div>
+
+    <!-- Last Update Time -->
+    <p class="text-sm text-gray-600">
+      {{ lastUpdateAge() }}
+    </p>
+
+    <!-- Exchange Status Chips -->
+    <div class="flex gap-2 flex-wrap">
+      @for (ex of snapshot()?.exchanges ?? []; track ex.exchange) {
+        <span class="px-2 py-1 rounded text-xs font-semibold"
+              [ngClass]="getExchangeClass(ex.freshness)">
+          {{ ex.exchange }}: {{ ex.freshness }}
+        </span>
+      }
+    </div>
+  </div>
+</div>

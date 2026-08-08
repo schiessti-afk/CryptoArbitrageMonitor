@@ -1,0 +1,41 @@
+<div class="min-h-screen bg-gray-50 p-6">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-4xl font-bold mb-6">Crypto Arbitrage Monitor</h1>
+
+    <!-- Connection Status -->
+    <app-connection-status />
+
+    <!-- Notional Input -->
+    <div class="mt-6 bg-white p-4 rounded-lg shadow">
+      <label class="block text-sm font-medium mb-2">
+        Investment Amount ($):
+        <input
+          [(ngModel)]="notional"
+          type="number"
+          min="100"
+          step="100"
+          class="ml-2 px-3 py-2 border rounded w-40"
+        />
+      </label>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Best Opportunities -->
+      <div class="lg:col-span-2">
+        <app-spread-detail
+          [opportunities]="opportunities()"
+          [notional]="notional()"
+        />
+      </div>
+
+      <!-- Matrix Table -->
+      <div>
+        <app-spread-table
+          [matrix]="matrix()"
+          [notional]="notional()"
+        />
+      </div>
+    </div>
+  </div>
+</div>
