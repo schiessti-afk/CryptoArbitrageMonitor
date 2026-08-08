@@ -1300,7 +1300,7 @@ setter, plus `getAdapters()` rebuilding a `HashMap` on every call. Symbol mappin
 `Map<String,String> symbolMap` — no way to express which quote asset a market used, or that a
 venue simply didn't offer a market at all.
 
-**After** ([ExchangeProperties.java](../backend/src/main/java/com/cryptoarbitrage/monitor/config/ExchangeProperties.java)):
+**After** ([ExchangeProperties.java](../../backend/src/main/java/com/cryptoarbitrage/monitor/config/ExchangeProperties.java)):
 
 ```java
 @ConfigurationProperties(prefix = "exchange")
@@ -1386,7 +1386,7 @@ cycle, and render as `NEVER` in the UI — indistinguishable from an actual outa
 
 ### Backend: per-(exchange, symbol) freshness
 
-**[ExchangeAvailabilityStore.java](../backend/src/main/java/com/cryptoarbitrage/monitor/service/ExchangeAvailabilityStore.java)**
+**[ExchangeAvailabilityStore.java](../../backend/src/main/java/com/cryptoarbitrage/monitor/service/ExchangeAvailabilityStore.java)**
 widened its key from `Exchange` to `record Key(Exchange exchange, String symbol)`. New methods:
 
 - `recordSuccess(Exchange, String symbol)`, `isFresh(Exchange, String symbol, long)` — per-pair facts
@@ -1395,7 +1395,7 @@ widened its key from `Exchange` to `record Key(Exchange exchange, String symbol)
 - `isFreshAny(Exchange, long)`, `getLastReceivedAtAny(Exchange)` — aggregate across whatever
   symbols that exchange has ever reported for, used for the venue-level chip
 
-**[SpreadPublisher.java](../backend/src/main/java/com/cryptoarbitrage/monitor/service/SpreadPublisher.java)**
+**[SpreadPublisher.java](../../backend/src/main/java/com/cryptoarbitrage/monitor/service/SpreadPublisher.java)**
 now groups active `tracked_pair` rows by `quoteCurrency` (the authoritative per-symbol mapping —
 not inferred from live ticker data, so it stays correct even when a quote universe has zero fresh
 venues) and publishes:
@@ -1448,7 +1448,7 @@ return — the field added earlier in Sprint 2 for exactly this purpose.
 ### Backend: `Exchange` enum, `V3` migration, poll-cycle flattening
 
 `Exchange` gained `BITGET`, `KUCOIN`. New migration
-[V3__add_usdt_universe.sql](../backend/src/main/resources/db/migration/V3__add_usdt_universe.sql):
+[V3__add_usdt_universe.sql](../../backend/src/main/resources/db/migration/V3__add_usdt_universe.sql):
 
 ```sql
 INSERT INTO tracked_pair (symbol, base_currency, quote_currency, active) VALUES
@@ -1477,7 +1477,7 @@ guard now that `quoteAsset` carries real, varying values.
 
 ### Frontend: `QuoteAssetService` and the toggle
 
-**[quote-asset.service.ts](../frontend/src/app/services/quote-asset.service.ts)** — one signal
+**[quote-asset.service.ts](../../frontend/src/app/services/quote-asset.service.ts)** — one signal
 (`selected: string`, default `"USD"`), persisted to `localStorage` under a namespaced key, with
 try/catch around storage access (private browsing can throw). Injected into `DashboardComponent`
 and `ConnectionStatusComponent` — the two places that need to filter by it.

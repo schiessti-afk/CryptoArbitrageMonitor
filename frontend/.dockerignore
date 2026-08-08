@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.angular/
+.sass-cache/
+*.log
+.DS_Store
+.git/
+.gitignore
+README.md

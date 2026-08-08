@@ -4,7 +4,6 @@ import com.cryptoarbitrage.monitor.dto.DatabaseFlushResultDto;
 import com.cryptoarbitrage.monitor.dto.DatabaseStatsDto;
 import com.cryptoarbitrage.monitor.service.DatabaseAdminService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/database")
-@CrossOrigin(origins = "*")
 public class DatabaseController {
 
     private final DatabaseAdminService databaseAdminService;

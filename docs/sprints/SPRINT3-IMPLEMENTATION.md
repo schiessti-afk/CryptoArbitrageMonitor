@@ -91,7 +91,7 @@ Injected `TrackedPairRepository` for DB-side checks.
 
 ### 1.8 Architecture doc
 
-[ARCHITECTURE.md](./ARCHITECTURE.md#exchange-api-limits) updated with post-batching req/s per venue.
+[ARCHITECTURE.md](../ARCHITECTURE.md#exchange-api-limits) updated with post-batching req/s per venue.
 
 ---
 
@@ -266,7 +266,7 @@ Open `http://localhost:4200` — KPI row, ranked opportunities, settings gear, f
 - Settings are client-side only (`localStorage`)
 - Coinbase remains the per-product bottleneck at 5 req/cycle for USD symbols
 
-**Done later (documented in [ARCHITECTURE.md](./ARCHITECTURE.md#error-handling)):** HTTP 429/418 and timeout backoff via `ExchangeBackoffFilter` + `ExchangeBackoffStore`; poll cycle skips venues still in the backoff window.
+**Done later (documented in [ARCHITECTURE.md](../ARCHITECTURE.md#error-handling)):** HTTP 429/418 and timeout backoff via `ExchangeBackoffFilter` + `ExchangeBackoffStore`; poll cycle skips venues still in the backoff window.
 
 ---
 

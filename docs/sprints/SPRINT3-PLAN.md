@@ -35,7 +35,7 @@ higher than today.
 ### 1.1 Probe the native symbols before writing any config (gate)
 
 `application.properties` is the single source of truth for which venue lists which market
-([ExchangeProperties](../backend/src/main/java/com/cryptoarbitrage/monitor/config/ExchangeProperties.java)),
+([ExchangeProperties](../../backend/src/main/java/com/cryptoarbitrage/monitor/config/ExchangeProperties.java)),
 so a wrong entry becomes a permanent WARN in every poll cycle. The Bitget/KuCoin entries were added
 only after live probes — do the same here. Nothing in 1.3 or 1.4 is written until this table is
 filled in from real responses.
@@ -57,7 +57,7 @@ curl -s "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=BNB-USDT" 
 
 Record the **exact response key** for each, not just the request symbol — Kraken already burned us
 once here (`pair=BTCUSDT` returns a result keyed `XBTUSDT`, documented at
-[application.properties:39](../backend/src/main/resources/application.properties)). Expect the same
+[application.properties:39](../../backend/src/main/resources/application.properties)). Expect the same
 class of surprise for `XDG`.
 
 Expected outcome, to be confirmed or corrected by the probe:
@@ -93,7 +93,7 @@ Either way this is a finding to record in the implementation doc, not something 
 
 ### 1.3 Batch the ticker fetch per venue (do before adding symbols)
 
-[`PollOrchestrationService.fetchTickersInParallel`](../backend/src/main/java/com/cryptoarbitrage/monitor/service/PollOrchestrationService.java)
+[`PollOrchestrationService.fetchTickersInParallel`](../../backend/src/main/java/com/cryptoarbitrage/monitor/service/PollOrchestrationService.java)
 issues one HTTP request per `(symbol, venue)` pair. Today that is ~12 requests per 3s cycle. At 11
 symbols it becomes ~45 per cycle — 15 req/s spread across five venues, with the per-venue peak
 landing in a burst at the top of each cycle.
@@ -113,7 +113,7 @@ times the symbols. Coinbase's per-product limit is the tightest of the five and 
 comfortably inside it.
 
 **Interface change** — add a batch method to
-[`ExchangeAdapter`](../backend/src/main/java/com/cryptoarbitrage/monitor/exchange/ExchangeAdapter.java)
+[`ExchangeAdapter`](../../backend/src/main/java/com/cryptoarbitrage/monitor/exchange/ExchangeAdapter.java)
 with a default implementation, so no adapter is forced to change and Coinbase simply keeps the
 default:
 
@@ -166,7 +166,7 @@ produces zero matrix rows, so its card and table section simply **vanish** — i
 and every USD symbol is if 1.2 resolves badly.
 
 Add per-symbol coverage to the published snapshot in
-[`SpreadPublisher`](../backend/src/main/java/com/cryptoarbitrage/monitor/service/SpreadPublisher.java):
+[`SpreadPublisher`](../../backend/src/main/java/com/cryptoarbitrage/monitor/service/SpreadPublisher.java):
 
 ```java
 record SymbolCoverageDto(String symbol, String quoteAsset, int configuredVenues, int freshVenues) {}
@@ -178,7 +178,7 @@ Derived from `ExchangeProperties` (configured) and `ExchangeAvailabilityStore.co
 
 ### 1.7 Extend `MarketConfigValidator`
 
-[`MarketConfigValidator`](../backend/src/main/java/com/cryptoarbitrage/monitor/config/MarketConfigValidator.java)
+[`MarketConfigValidator`](../../backend/src/main/java/com/cryptoarbitrage/monitor/config/MarketConfigValidator.java)
 today catches only mixed quote assets. Two new startup checks, both cheap and both catching real
 Phase-1 failure modes:
 
@@ -201,7 +201,7 @@ Phase-1 failure modes:
 
 ### 1.9 Documentation
 
-Update the exchange API-limit summary in [ARCHITECTURE.md](./ARCHITECTURE.md) with post-batching
+Update the exchange API-limit summary in [ARCHITECTURE.md](../ARCHITECTURE.md) with post-batching
 requests/second per venue, so Sprint 4's 429-backoff work starts from a real number.
 
 ### Phase 1 exit criteria
@@ -220,7 +220,7 @@ minimum net spread, and switch theme and density — all persisted locally, all 
 ### 2.1 `SettingsService`
 
 Root-provided Angular service, signal-backed, `localStorage`-persisted, modelled on the existing
-[`QuoteAssetService`](../frontend/src/app/services/quote-asset.service.ts) (same try/catch around
+[`QuoteAssetService`](../../frontend/src/app/services/quote-asset.service.ts) (same try/catch around
 storage so private browsing degrades silently).
 
 ```ts
@@ -263,7 +263,7 @@ Sections:
 
 ### 2.3 One filter pipeline, not filters scattered per component
 
-Today [`DashboardComponent`](../frontend/src/app/components/dashboard/dashboard.component.ts)
+Today [`DashboardComponent`](../../frontend/src/app/components/dashboard/dashboard.component.ts)
 filters by quote asset inline and passes results down. Adding three more filter dimensions that way
 will drift. Consolidate into one ordered computed chain in the dashboard:
 
@@ -285,7 +285,7 @@ unchanged so the common path is untouched.
 ### 2.4 The LIVE badge has to agree with the filter
 
 The badge reads `snapshot.liveByQuote[selected]`, computed backend-side over all venues
-([connection-status.component.ts:43](../frontend/src/app/components/connection-status/connection-status.component.ts)).
+([connection-status.component.ts:43](../../frontend/src/app/components/connection-status/connection-status.component.ts)).
 Disable three of five venues and the backend still reports LIVE while the user is looking at one
 venue. Recompute the badge client-side over *visible* venues (≥2 fresh among visible), falling back
 to the backend value when nothing is disabled. Same principle as 2.3: what the badge describes must
@@ -369,7 +369,7 @@ symbol where 10 carry the information. Default to the better direction per unord
 with a "show both directions" toggle for anyone checking the math.
 
 **c. Keep the classification honest.** The existing POTENTIAL / NEUTRAL / NO_OPPORTUNITY states in
-[spread-state.ts](../frontend/src/app/utils/spread-state.ts) stay. Add quick-filter chips above the
+[spread-state.ts](../../frontend/src/app/utils/spread-state.ts) stay. Add quick-filter chips above the
 list — **All** (default) / Positive net / Above threshold — so filtering is one click and its state
 is visible, rather than living only in the settings drawer.
 

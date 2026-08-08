@@ -253,6 +253,6 @@ Updated `SPRINT2-PLAN.md` and `SPRINT2-IMPLEMENTATION.md` to include all 7 items
 - `backend/src/test/java/.../SpreadCalculationServiceTest.java` — Update to new PriceTicker signature + add screenshot test
 
 **Docs (2 files)**
-- `docs/SPRINT2-PLAN.md` — Added refinement section
-- `docs/SPRINT2-IMPLEMENTATION.md` — Added implementation details
+- `docs/sprints/SPRINT2-PLAN.md` — Added refinement section
+- `docs/sprints/SPRINT2-IMPLEMENTATION.md` — Added implementation details
 

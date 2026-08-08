@@ -1,4 +1,9 @@
-# Crypto Arbitrage Monitor
+# Crypto Arbitrage Monitor — Product brief
+
+> **Historical.** This document is the original product brief. Shipped V1 differs in several places
+> (five venues including Bitget/KuCoin, **50** USD+USDT markets, selective polling, Docker Compose
+> full stack). For current behavior use [README.md](../README.md), [ARCHITECTURE.md](./ARCHITECTURE.md),
+> and [sprints/SPRINT.md](./sprints/SPRINT.md).
 
 ## 1. Project Overview
 

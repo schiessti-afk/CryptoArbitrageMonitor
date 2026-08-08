@@ -1,10 +1,16 @@
 # Sprint plan
 
-Five sprints to a runnable V1 (Sprint 0 = repo/toolchain). Scope is locked to the decisions in the product brief and [ARCHITECTURE.md](./ARCHITECTURE.md).
+Five delivery sprints to a runnable V1 (Sprint 0 = repo/toolchain), plus a post–Sprint 3 USDT expansion.
+Scope follows [ARCHITECTURE.md](../ARCHITECTURE.md). The original product brief is [IDEA.MD](../IDEA.MD)
+(historical — shipped scope is larger).
 
-**Package:** `com.cryptoarbitrage.monitor`  
-**License:** MIT  
-**Delivery:** `docker compose up --build` runs Postgres + backend + Nginx-served Angular
+| | |
+|---|---|
+| **Package** | `com.cryptoarbitrage.monitor` |
+| **License** | MIT |
+| **Delivery** | `docker compose up --build` → Postgres + backend + Nginx-served Angular |
+
+**Status:** V1 Definition of Done is complete (Sprint 4 shipped 2026-08-08).
 
 ---
 
@@ -19,7 +25,7 @@ Five sprints to a runnable V1 (Sprint 0 = repo/toolchain). Scope is locked to th
 - [x] Package folders: `config`, `exchange`, `service`, `controller`, `repository`, `model`, `dto`
 - [x] Angular app under `frontend/` with Tailwind, STOMP/SockJS client deps, SPA (no SSR)
 - [x] Frontend folders: `components/`, `services/`, `models/`
-- [x] Postgres service in `docker-compose.yml` (backend/frontend images in Sprint 4)
+- [x] Postgres service in `docker-compose.yml` (backend/frontend images completed in Sprint 4)
 - [x] MIT `LICENSE`, root `.gitignore`, `.env.example`
 - [x] README local-dev prerequisites and run commands
 
@@ -109,7 +115,7 @@ Full breakdown in [SPRINT3-PLAN.md](./SPRINT3-PLAN.md). Implementation notes: [S
 - [x] Per-symbol coverage in the published snapshot so thin markets explain themselves
 - [x] `MarketConfigValidator`: warn on under-covered symbols and config/DB drift
 - [x] Batch-response fixtures and tests, including a partial batch
-- [x] Post-batching request rates recorded in [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [x] Post-batching request rates recorded in [ARCHITECTURE.md](../ARCHITECTURE.md)
 
 ### Phase 2 — Settings
 
@@ -174,29 +180,33 @@ Full breakdown in [SPRINT-USDT-EXPANSION.md](./SPRINT-USDT-EXPANSION.md).
 
 **Goal:** Production-like local deploy, hardening, docs, and DoD checklist.
 
+Full breakdown in [SPRINT4-PLAN.md](./SPRINT4-PLAN.md). Implementation notes: [SPRINT4-IMPLEMENTATION.md](./SPRINT4-IMPLEMENTATION.md).
+
 > Renumbered from Sprint 3 on 2026-08-08 when the sprint above was inserted. The Sprint 1 and
 > Sprint 2 documents still refer to this work as "Sprint 3" and were left as written.
 
 > **Partial early delivery:** flash-on-change (Sprint 3 Phase 3) and exchange 429/timeout backoff
 > were implemented before the Docker/Nginx ship work. Behavior is documented in
-> [ARCHITECTURE.md](./ARCHITECTURE.md#error-handling) and the README.
+> [ARCHITECTURE.md](../ARCHITECTURE.md#error-handling) and the README.
 
 ### Deliverables
 
-- [ ] `docker-compose.yml`: postgres, backend, frontend — Postgres only so far
-- [ ] Frontend Dockerfile: production `ng build` + **Nginx**
-- [ ] Nginx routing for SPA + API/WebSocket proxy as required
+- [x] `docker-compose.yml`: postgres, backend, frontend
+- [x] Frontend Dockerfile: production `ng build` + **Nginx**
+- [x] Nginx routing for SPA + API/WebSocket proxy as required
 - [x] Env-based DB config; externalized exchange URLs/timeouts/fees
 - [x] Documented exchange API limit summary (see Architecture)
 - [x] Backoff / graceful handling for timeouts and `429`s (`ExchangeBackoffFilter` + `ExchangeBackoffStore`)
-- [ ] README quick start verified from clean checkout
+- [x] README quick start verified from clean checkout
 - [x] MIT `LICENSE`
-- [ ] Final pass on logging and API error responses
-- [ ] Fill remaining gaps from the V1 Definition of Done below
+- [x] Final pass on logging and API error responses
+- [x] Fill remaining gaps from the V1 Definition of Done below
 
 ### Sprint 4 exit criteria
 
-A new developer can clone, run `docker compose up --build`, and see live indicative opportunities for `BTC/USD` and `ETH/USD`.
+- [x] A new developer can clone, run `docker compose up --build`, and see live indicative opportunities for `BTC/USD` and `ETH/USD`
+
+See [SPRINT4-IMPLEMENTATION.md](./SPRINT4-IMPLEMENTATION.md) for Docker layout, hardening notes, and verification commands.
 
 ---
 
@@ -225,7 +235,7 @@ A new developer can clone, run `docker compose up --build`, and see live indicat
 - [x] History API is bounded (`limit` + optional time range)
 - [x] Unit tests cover the calculation engine
 - [x] Integration tests cover database functionality
-- [ ] Entire stack starts with `docker compose up --build`
+- [x] Entire stack starts with `docker compose up --build`
 - [x] MIT license present
 
 ---

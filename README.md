@@ -36,7 +36,7 @@ This application does **not** execute trades. Displayed values are **indicative 
 | Backend | Java 17+, Spring Boot 4, WebClient, WebSocket/STOMP/SockJS, Spring Data JPA, Flyway |
 | Frontend | Angular 19, TypeScript, Signals, STOMP/SockJS client, Tailwind CSS |
 | Data | PostgreSQL |
-| Runtime | Docker Compose (PostgreSQL now; backend + Nginx-served Angular planned in Sprint 4) |
+| Runtime | Docker Compose (PostgreSQL + Spring Boot + Nginx-served Angular) |
 
 Java package root: `com.cryptoarbitrage.monitor`
 
@@ -46,7 +46,7 @@ Java package root: `com.cryptoarbitrage.monitor`
 |---|---|---|
 | JDK | 17+ | Temurin 17 recommended. Set `JAVA_HOME` if an older JRE is still on `PATH`. |
 | Node.js | 20+ LTS | Ships with npm |
-| Docker Desktop | recent | Runs PostgreSQL |
+| Docker Desktop | recent | Full stack via Compose (or Postgres-only for hybrid local-dev) |
 | Git | recent | Clone / commits |
 
 Use the Gradle wrapper and npm scripts — no global Maven or Angular CLI required.
@@ -54,10 +54,10 @@ Use the Gradle wrapper and npm scripts — no global Maven or Angular CLI requir
 ### Verify
 
 ```bash
-java -version          # must show 17+ (not 1.8)
-node -v                # 20+
+docker version         # required for Compose quick start
+java -version          # 17+ if running backend locally
+node -v                # 20+ if running frontend locally
 npm -v
-docker version
 ```
 
 Windows example if `java -version` shows 1.8:
@@ -67,7 +67,29 @@ $env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-17.0.20.8-hotspot'
 $env:Path = "$env:JAVA_HOME\bin;" + $env:Path
 ```
 
-## Local development
+## Quick start (Docker Compose)
+
+```bash
+docker compose up --build
+```
+
+Open **http://localhost:8080**
+
+Compose starts PostgreSQL, the Spring Boot backend, and Nginx serving the production Angular build (proxying `/api` and SockJS `/ws`). Flyway applies migrations through **V6** on backend startup.
+
+If port 8080 is already in use:
+
+```bash
+# bash / macOS / Linux
+FRONTEND_PORT=8888 docker compose up --build
+
+# PowerShell
+$env:FRONTEND_PORT='8888'; docker compose up --build
+```
+
+Default DB credentials: database `arbitrage`, user/password `arbitrage`. Host Postgres port **5437** remains mapped for hybrid local development (see `.env.example`). Full run notes: [docs/RUN.md](docs/RUN.md).
+
+## Local development (hybrid)
 
 ```bash
 # 1) Start PostgreSQL
@@ -84,11 +106,7 @@ npm install
 npm start                      # http://localhost:4200
 ```
 
-Default DB credentials: database `arbitrage`, user/password `arbitrage`, host port **5437** (see `.env.example`).
-
-Flyway applies migrations through **V6** on startup (`V5` + `V6` USDT expansion batches).
-
-See also [docs/RUN.md](docs/RUN.md).
+Details and troubleshooting: [docs/RUN.md](docs/RUN.md).
 
 ## Monitored markets
 
@@ -120,7 +138,7 @@ Binance global spot lists SOL/USD but not XRP/USD or DOGE/USD (verified live).
 | `TON/USDT` | Binance, Kraken, KuCoin |
 | Remaining extended USDT (see list above) | Binance, Bitget, KuCoin |
 
-`POL/USDT` replaces MATIC on Bitget/KuCoin naming. Native symbol mapping and probe notes: [docs/SPRINT-USDT-EXPANSION.md](docs/SPRINT-USDT-EXPANSION.md) and [docs/SPRINT.md](docs/SPRINT.md).
+`POL/USDT` replaces MATIC on Bitget/KuCoin naming. Native symbol mapping and probe notes: [docs/sprints/SPRINT-USDT-EXPANSION.md](docs/sprints/SPRINT-USDT-EXPANSION.md) and [docs/sprints/SPRINT.md](docs/sprints/SPRINT.md).
 
 ## How it works
 
@@ -170,12 +188,15 @@ Live updates: STOMP topic `/topic/spreads` (SockJS). Snapshots include `coverage
 
 ## Documentation
 
-- [Local run](docs/RUN.md)
-- [Architecture](docs/ARCHITECTURE.md) — data flow, liquidity/depth, backoff, API limits
-- [Sprint plan](docs/SPRINT.md) — delivery sprints and definition of done
-- [Sprint 3 implementation](docs/SPRINT3-IMPLEMENTATION.md)
-- [USDT expansion (V5/V6)](docs/SPRINT-USDT-EXPANSION.md)
-- [Product idea / notes](docs/IDEA.MD)
+| Doc | Contents |
+|---|---|
+| [Local run](docs/RUN.md) | Compose full stack and hybrid local development |
+| [Architecture](docs/ARCHITECTURE.md) | Data flow, adapters, liquidity/depth, backoff, API limits |
+| [Sprint plan](docs/sprints/SPRINT.md) | Delivery sprints and V1 definition of done |
+| [Sprint 4](docs/sprints/SPRINT4-PLAN.md) · [notes](docs/sprints/SPRINT4-IMPLEMENTATION.md) | Docker Compose ship + hardening |
+| [Sprint 3 notes](docs/sprints/SPRINT3-IMPLEMENTATION.md) | Asset expansion, settings, dashboard UX |
+| [USDT expansion](docs/sprints/SPRINT-USDT-EXPANSION.md) | V5/V6 markets and selective polling |
+| [Product brief](docs/IDEA.MD) | Original idea notes (historical; see Architecture for shipped V1) |
 
 ## Limitations
 

@@ -18,6 +18,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Local hybrid (ng serve :4200) and Compose Nginx (:8080) both match these patterns.
+        // Same-origin Compose traffic still presents Origin: http://localhost:8080.
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")
                 .withSockJS();

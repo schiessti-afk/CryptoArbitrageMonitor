@@ -16,8 +16,28 @@ services:
       timeout: 5s
       retries: 10
 
-  # backend and frontend images are added in Sprint 4.
-  # Until then, run them locally against this Postgres instance.
+  backend:
+    build: ./backend
+    container_name: cam-backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/arbitrage
+      DATABASE_USERNAME: arbitrage
+      DATABASE_PASSWORD: arbitrage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Optional local debugging against the containerized API:
+    # ports:
+    #   - "8081:8081"
+
+  frontend:
+    build: ./frontend
+    container_name: cam-frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres-data:

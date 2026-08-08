@@ -183,7 +183,7 @@ After initial delivery, seven improvements to make the dashboard honest, transpa
 
 ### 1. Make quote market explicit and self-verifying
 
-Add `nativeSymbol` and `quoteAsset` to [PriceTicker](../backend/src/main/java/com/cryptoarbitrage/monitor/exchange/PriceTicker.java) and thread through to `SpreadDto`, enabling per-leg asset visibility. Nest symbol config in `ExchangeProperties`:
+Add `nativeSymbol` and `quoteAsset` to [PriceTicker](../../backend/src/main/java/com/cryptoarbitrage/monitor/exchange/PriceTicker.java) and thread through to `SpreadDto`, enabling per-leg asset visibility. Nest symbol config in `ExchangeProperties`:
 
 ```
 exchange.binance.markets.BTC_USD.native-symbol=BTCUSD
@@ -210,7 +210,7 @@ Replace all `netSpreadPercent < 0 ? ... : ...` ternaries in the detail card and 
 
 ### 4. Matrix: group by symbol, then sort by net desc
 
-Add a symbol column (or grouped subheaders). Sort within each symbol by `netSpreadPercent` descending (tiebreak on raw desc, then buy exchange name). Group the computed signal in [spread-table.component.ts](../frontend/src/app/components/spread-table/spread-table.component.ts) so the WebSocket payload stays flat. Also standardize matrix precision to 4 decimals to match the detail card (currently 2dp in the table, 4dp in the card).
+Add a symbol column (or grouped subheaders). Sort within each symbol by `netSpreadPercent` descending (tiebreak on raw desc, then buy exchange name). Group the computed signal in [spread-table.component.ts](../../frontend/src/app/components/spread-table/spread-table.component.ts) so the WebSocket payload stays flat. Also standardize matrix precision to 4 decimals to match the detail card (currently 2dp in the table, 4dp in the card).
 
 ### 5. Notional quick-select + config endpoint
 
@@ -231,7 +231,7 @@ Add `GET /api/config` endpoint. Render a collapsible **Fees & spread math** pane
 net% = ((sell × (1 − sellFee)) / (buy × (1 + buyFee)) − 1) × 100
 ```
 
-Add an optional `Fees %` column to the matrix showing the fee impact per route. Write a `SpreadCalculationServiceTest` case using prices in the same range as the reported screenshot (buy 64,967.30 Kraken / sell 64,963.00 Binance, fees 0.26%/0.1%) and assert the value the formula actually produces for those exact inputs (**−0.3657%**, independently computed) — not the screenshot's −0.3675%, which was read off a live UI at a different instant and isn't reproducible bit-for-bit from a fixed fixture. The point of the test is that the *formula* is verifiable from whatever numbers the UI displays, not that one frozen fixture matches one screenshot. Add test cases for `spreadState()` boundaries and matrix sort order. Update README and [ARCHITECTURE.md](./ARCHITECTURE.md) with a "Fees and spread math" section, fee table, formula, and one worked example.
+Add an optional `Fees %` column to the matrix showing the fee impact per route. Write a `SpreadCalculationServiceTest` case using prices in the same range as the reported screenshot (buy 64,967.30 Kraken / sell 64,963.00 Binance, fees 0.26%/0.1%) and assert the value the formula actually produces for those exact inputs (**−0.3657%**, independently computed) — not the screenshot's −0.3675%, which was read off a live UI at a different instant and isn't reproducible bit-for-bit from a fixed fixture. The point of the test is that the *formula* is verifiable from whatever numbers the UI displays, not that one frozen fixture matches one screenshot. Add test cases for `spreadState()` boundaries and matrix sort order. Update README and [ARCHITECTURE.md](../ARCHITECTURE.md) with a "Fees and spread math" section, fee table, formula, and one worked example.
 
 ---
 

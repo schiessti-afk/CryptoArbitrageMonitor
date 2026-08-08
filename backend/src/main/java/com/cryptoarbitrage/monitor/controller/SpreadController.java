@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class SpreadController {
 
     private final TrackedPairRepository trackedPairRepository;

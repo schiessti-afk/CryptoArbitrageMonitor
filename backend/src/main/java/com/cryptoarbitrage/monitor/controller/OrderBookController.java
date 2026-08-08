@@ -3,7 +3,6 @@ package com.cryptoarbitrage.monitor.controller;
 import com.cryptoarbitrage.monitor.dto.RouteOrderBookDto;
 import com.cryptoarbitrage.monitor.service.OrderBookService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,7 +13,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orderbook")
-@CrossOrigin(origins = "*")
 public class OrderBookController {
 
     private final OrderBookService orderBookService;
